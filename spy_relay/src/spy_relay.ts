@@ -129,14 +129,15 @@ function processVaa(parse_vaa, vaaBytes) {
   if (parsedVAA.payload[0] === 1) {
     var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
     var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    //    console.log("storeKey: ", helpers.storeKeyToJson(storeKey));
-    //    console.log("storePayload: ", helpers.storePayloadToJson(storePayload));
-    var newStoreKey = helpers.storeKeyFromJson(JSON.stringify(storeKey));
-    var newStorePayload = helpers.storeePayloadFromJson(
-      JSON.stringify(storePayload)
+    // console.log("storeKey: ", helpers.storeKeyToJson(storeKey));
+    // console.log("storePayload: ", helpers.storePayloadToJson(storePayload));
+    console.log(
+      "storing: key: [%d/%s/%d], payload: [%s]",
+      storeKey.chain_id,
+      storeKey.emitter_address,
+      storeKey.sequence,
+      helpers.storePayloadToJson(storePayload)
     );
-    //    console.log("newStoreKey: ", newStoreKey);
-    //    console.log("newStorePayload: ", newStorePayload);
     storeInRedis(
       myRedisClient,
       helpers.storeKeyToJson(storeKey),

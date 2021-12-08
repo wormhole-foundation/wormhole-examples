@@ -36,6 +36,6 @@ export function storePayloadToJson(storePayload: StorePayload): string {
   return JSON.stringify(storePayload);
 }
 
-export function storeePayloadFromJson(json: string): StorePayload {
+export function storePayloadFromJson(json: string): StorePayload {
   return JSON.parse(json);
 }
