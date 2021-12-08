@@ -20,6 +20,8 @@ import {
   setDefaultWasm,
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
+import { createClient } from "redis";
+
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
 
@@ -36,12 +38,33 @@ for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
   console.log("staring worker %d", workerIdx);
   (async () => {
     let myWorkerIdx = workerIdx;
-    for (var i = 0; i < 5; i++) {
-      await sleep(1000 * myWorkerIdx);
-      console.log("worker %d: %d", myWorkerIdx, i);
+    const redisClient = createClient();
+    redisClient.on("error", (err) => console.log("Redis Client Error", err));
+    redisClient.on("connect", (err) =>
+      console.log("Redis Client Connected", err)
+    );
+    await redisClient.connect();
+    var keysReply = await redisClient.keys("*");
+    if (keysReply) {
+      console.log("keysReply: ", keysReply);
+      keysReply.forEach(async (element) => {
+        var keyVal = await redisClient.get(element);
+        if (keyVal) {
+          console.log("%s => %s", element, keyVal);
+        } else {
+          console.log("No keyVal returned.");
+        }
+      });
+    } else {
+      console.log("No keysReply");
     }
+    // for (var i = 0; i < 5; i++) {
+    //   await sleep(1000 * myWorkerIdx);
+    //   console.log("worker %d: %d", myWorkerIdx, i);
+    // }
 
     console.log("worker %d exiting", myWorkerIdx);
+    await redisClient.quit();
   })();
 }
 
