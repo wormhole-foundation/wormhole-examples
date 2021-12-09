@@ -37,7 +37,10 @@ export async function spy_listen() {
   );
 
   // Connect to redis
-  var myRedisClient = connectToRedis();
+  var myRedisClient;
+  async () => {
+    myRedisClient = await connectToRedis();
+  };
 
   setDefaultWasm("node");
 
@@ -103,7 +106,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-function processVaa(myRedisClient, parse_vaa, vaaBytes) {
+function processVaa(redisClient, parse_vaa, vaaBytes) {
   // console.log(vaaBytes);
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // console.log(parsedVAA);
@@ -120,7 +123,7 @@ function processVaa(myRedisClient, parse_vaa, vaaBytes) {
       helpers.storePayloadToJson(storePayload)
     );
     storeInRedis(
-      myRedisClient,
+      redisClient,
       helpers.storeKeyToJson(storeKey),
       helpers.storePayloadToJson(storePayload)
     );
@@ -156,6 +159,6 @@ async function connectToRedis() {
   return rClient;
 }
 
-async function storeInRedis(myRedisClient, name: string, value: string) {
-  await (await myRedisClient).set(name, value);
+async function storeInRedis(redisClient, name: string, value: string) {
+  await redisClient.set(name, value);
 }
