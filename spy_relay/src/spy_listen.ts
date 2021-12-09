@@ -144,10 +144,13 @@ function processVaa(myRedisClient, parse_vaa, vaaBytes) {
 async function connectToRedis() {
   var rClient = createClient();
 
-  rClient.on("error", (err) => console.log("Redis writer client error", err));
-  rClient.on("connect", (err) =>
-    console.log("Redis writer client connected", err)
-  );
+  rClient.on("connect", function (err) {
+    if (err) {
+      console.error("Redis writer client failed to connect to Redis:", err);
+    } else {
+      console.log("Redis writer client Connected");
+    }
+  });
 
   await rClient.connect();
   return rClient;
