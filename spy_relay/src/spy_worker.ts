@@ -48,19 +48,13 @@ export async function spy_worker() {
         }
       });
       await redisClient.connect();
-      var keysReply = await redisClient.keys("*");
-      if (keysReply) {
-        console.log("keysReply: ", keysReply);
-        keysReply.forEach(async (element) => {
-          var keyVal = await redisClient.get(element);
-          if (keyVal) {
-            console.log("%s => %s", element, keyVal);
-          } else {
-            console.log("No keyVal returned.");
-          }
-        });
-      } else {
-        console.log("No keysReply");
+      for await (const si_key of redisClient.scanIterator()) {
+        const si_keyval = await redisClient.get(si_key);
+        if (si_keyval) {
+          console.log("SI: %s => %s", si_key, si_keyval);
+        } else {
+          console.error("No si_keyval returned!");
+        }
       }
       // for (var i = 0; i < 5; i++) {
       //   await sleep(1000 * myWorkerIdx);
