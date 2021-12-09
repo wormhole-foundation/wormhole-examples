@@ -40,12 +40,13 @@ export async function spy_worker() {
     (async () => {
       let myWorkerIdx = workerIdx;
       const redisClient = createClient();
-      redisClient.on("error", (err) =>
-        console.log("Redis reader client error", err)
-      );
-      redisClient.on("connect", (err) =>
-        console.log("Redis reader client connected", err)
-      );
+      redisClient.on("connect", function (err) {
+        if (err) {
+          console.error("Redis reader client failed to connect to Redis:", err);
+        } else {
+          console.log("Redis reader client connected");
+        }
+      });
       await redisClient.connect();
       var keysReply = await redisClient.keys("*");
       if (keysReply) {
