@@ -141,7 +141,31 @@ function processVaa(redisClient, parse_vaa, vaaBytes) {
       transferPayload.amount
     );
     // console.log(transferPayload);
+  } else if (isPyth(parsedVAA.payload)) {
+    // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
+    console.log("dropping pyth message", parsedVAA);
+  } else {
+    console.log(
+      "dropping vaa, payload type %d",
+      parsedVAA.payload[0],
+      parsedVAA
+    );
   }
+}
+
+function isPyth(payload): boolean {
+  if (payload.length < 4) return false;
+  if (
+    payload[0] === 80 &&
+    payload[1] === 50 &&
+    payload[2] === 87 &&
+    payload[3] === 72
+  ) {
+    // P2WH
+    return true;
+  }
+
+  return false;
 }
 
 async function connectToRedis() {

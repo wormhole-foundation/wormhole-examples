@@ -41,9 +41,3 @@ RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
   go build -race -gcflags="all=-N -l" -mod=readonly -o /guardiand github.com/certusone/wormhole/node
 
 ENTRYPOINT /guardiand spy --nodeKey /tmp/node.key $ARGS
-
-# DevNet:
-#docker run -e ARGS='--spyRPC [::]:7072 --bootstrap /dns4/guardian-0.guardian/udp/8999/quic/p2p/12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw' guardian
-
-# TestNet:
-#docker run -e ARGS='--spyRPC [::]:7072 --network /wormhole/testnet/2/1 --bootstrap /dns4/wormhole-testnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWBY9ty9CXLBXGQzMuqkziLntsVcyz4pk1zWaJRvJn6Mmt' guardian

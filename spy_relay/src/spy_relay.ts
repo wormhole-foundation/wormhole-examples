@@ -5,14 +5,61 @@ import * as helpers from "./helpers";
 
 require("dotenv").config();
 
+var runListen: boolean = true;
+var runWorker: boolean = true;
+var runRest: boolean = true;
+var foundOne: boolean = false;
+
+for (let idx = 0; idx < process.argv.length; ++idx) {
+  if (process.argv[idx] === "--listen_only") {
+    if (foundOne) {
+      console.error(
+        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
+      );
+      process.exit(1);
+    }
+    runWorker = false;
+    runRest = false;
+    foundOne = true;
+  }
+
+  if (process.argv[idx] === "--worker_only") {
+    if (foundOne) {
+      console.error(
+        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
+      );
+      process.exit(1);
+    }
+    runListen = false;
+    runRest = false;
+    foundOne = true;
+  }
+
+  if (process.argv[idx] === "--rest_only") {
+    if (foundOne) {
+      console.error(
+        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
+      );
+      process.exit(1);
+    }
+    runListen = false;
+    runWorker = false;
+    foundOne = true;
+  }
+}
+
 // Start the spy listener to listen to the guardians.
-spy_listen();
+if (runListen) {
+  spy_listen();
+}
 
 // Start the spy worker to process VAAs from the store.
-spy_worker();
+if (runWorker) {
+  spy_worker();
+}
 
 // Start the REST server, if configured.
-if (process.env.SPY_REST_PORT) {
+if (runRest && process.env.SPY_REST_PORT) {
   var restPort = parseInt(process.env.SPY_REST_PORT);
   if (!restPort) {
     console.error(
