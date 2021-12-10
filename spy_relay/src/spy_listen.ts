@@ -36,16 +36,19 @@ export async function spy_listen() {
     process.env.SPY_SERVICE_HOST
   );
 
-  // Connect to redis
-  var myRedisClient;
-  async () => {
-    myRedisClient = await connectToRedis();
-  };
-
   setDefaultWasm("node");
 
   (async () => {
     var filter = {};
+
+    // Connect to redis
+    const myRedisClient = await connectToRedis();
+    if (myRedisClient) {
+      console.log("Got a valid client from connect");
+    } else {
+      console.error("Invalid client from connect");
+      return;
+    }
     if (process.env.SPY_SERVICE_FILTERS) {
       const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
 
@@ -88,6 +91,7 @@ export async function spy_listen() {
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
+    await myRedisClient.quit();
   })();
 }
 
