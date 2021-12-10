@@ -36,6 +36,18 @@ export async function spy_listen() {
     process.env.SPY_SERVICE_HOST
   );
 
+  var processPyth: boolean =
+    process.env.SPY_PROCESS_PYTH && process.env.SPY_PROCESS_PYTH === "1";
+  if (processPyth) {
+    console.log("spy_relay will process pyth messages");
+  }
+
+  // Connect to redis
+  var myRedisClient;
+  async () => {
+    myRedisClient = await connectToRedis();
+  };
+
   setDefaultWasm("node");
 
   (async () => {
@@ -87,7 +99,7 @@ export async function spy_listen() {
     const { parse_vaa } = await importCoreWasm();
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(myRedisClient, parse_vaa, vaaBytes);
+      processVaa(myRedisClient, parse_vaa, vaaBytes, processPyth);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
@@ -110,7 +122,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-function processVaa(redisClient, parse_vaa, vaaBytes) {
+function processVaa(redisClient, parse_vaa, vaaBytes, processPyth: boolean) {
   // console.log(vaaBytes);
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // console.log(parsedVAA);
@@ -145,15 +157,35 @@ function processVaa(redisClient, parse_vaa, vaaBytes) {
       transferPayload.amount
     );
     // console.log(transferPayload);
-  } else if (isPyth(parsedVAA.payload)) {
-    // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
-    console.log("dropping pyth message", parsedVAA);
   } else {
-    console.log(
-      "dropping vaa, payload type %d",
-      parsedVAA.payload[0],
-      parsedVAA
-    );
+    var pyth = isPyth(parsedVAA.payload);
+    if (pyth) {
+      if (processPyth) {
+        // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
+        var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+        var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+        console.log(
+          "storing pyth: key: [%d/%s/%d], payload: [%s]",
+          storeKey.chain_id,
+          storeKey.emitter_address,
+          storeKey.sequence,
+          helpers.storePayloadToJson(storePayload)
+        );
+        storeInRedis(
+          redisClient,
+          helpers.storeKeyToJson(storeKey),
+          helpers.storePayloadToJson(storePayload)
+        );
+      } else {
+        console.log("dropping pyth", parsedVAA);
+      }
+    } else {
+      console.log(
+        "dropping vaa, payload type %d",
+        parsedVAA.payload[0],
+        parsedVAA
+      );
+    }
   }
 }
 

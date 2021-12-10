@@ -24,12 +24,6 @@ cd spy_relay
 docker build -f Dockerfile -t guardian .
 ```
 
-To run the docker image in DevNet:
-
-```
-docker run -e ARGS='--spyRPC [::]:7073 --bootstrap /dns4/guardian-0.guardian/udp/8999/quic/p2p/12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw' -p 7073:7073 guardian
-```
-
 To run the docker image in TestNet:
 
 ```
