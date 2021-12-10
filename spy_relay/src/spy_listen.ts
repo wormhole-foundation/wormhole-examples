@@ -52,15 +52,6 @@ export async function spy_listen() {
 
   (async () => {
     var filter = {};
-
-    // Connect to redis
-    const myRedisClient = await connectToRedis();
-    if (myRedisClient) {
-      console.log("Got a valid client from connect");
-    } else {
-      console.error("Invalid client from connect");
-      return;
-    }
     if (process.env.SPY_SERVICE_FILTERS) {
       const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
 
@@ -99,11 +90,10 @@ export async function spy_listen() {
     const { parse_vaa } = await importCoreWasm();
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(myRedisClient, parse_vaa, vaaBytes, processPyth);
+      processVaa(parse_vaa, vaaBytes, processPyth);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
-    await myRedisClient.quit();
   })();
 }
 
@@ -122,10 +112,19 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-function processVaa(redisClient, parse_vaa, vaaBytes, processPyth: boolean) {
+async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
   // console.log(vaaBytes);
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // console.log(parsedVAA);
+
+  // Connect to redis
+  const myRedisClient = await connectToRedis();
+  if (myRedisClient) {
+    console.log("Got a valid client from connect");
+  } else {
+    console.error("Invalid client from connect");
+    return;
+  }
   if (parsedVAA.payload[0] === 1) {
     var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
     var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
@@ -139,7 +138,7 @@ function processVaa(redisClient, parse_vaa, vaaBytes, processPyth: boolean) {
       helpers.storePayloadToJson(storePayload)
     );
     storeInRedis(
-      redisClient,
+      myRedisClient,
       helpers.storeKeyToJson(storeKey),
       helpers.storePayloadToJson(storePayload)
     );
@@ -172,7 +171,7 @@ function processVaa(redisClient, parse_vaa, vaaBytes, processPyth: boolean) {
           helpers.storePayloadToJson(storePayload)
         );
         storeInRedis(
-          redisClient,
+          myRedisClient,
           helpers.storeKeyToJson(storeKey),
           helpers.storePayloadToJson(storePayload)
         );
@@ -187,6 +186,7 @@ function processVaa(redisClient, parse_vaa, vaaBytes, processPyth: boolean) {
       );
     }
   }
+  await myRedisClient.quit();
 }
 
 function isPyth(payload): boolean {
