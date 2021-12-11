@@ -1,5 +1,7 @@
 import { createClient } from "redis";
 
+import { relay } from "./relay/main";
+
 import {
   ChainId,
   CHAIN_ID_SOLANA,
@@ -113,9 +115,10 @@ async function encodeEmitterAddress(
 }
 
 async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
-  // console.log(vaaBytes);
+  console.log("processVaa");
+  console.log(vaaBytes);
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
-  // console.log(parsedVAA);
+  console.log(parsedVAA);
 
   // Connect to redis
   const myRedisClient = await connectToRedis();
@@ -155,7 +158,13 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
       transferPayload.targetAddress,
       transferPayload.amount
     );
-    // console.log(transferPayload);
+
+    // console.log("relaying vaa");
+    // try {
+    //   relay(storeKey.chain_id as ChainId, vaaBytes);
+    // } catch (e) {
+    //   console.error("failed to relay transfer vaa:", e);
+    // }
   } else {
     var pyth = isPyth(parsedVAA.payload);
     if (pyth) {
