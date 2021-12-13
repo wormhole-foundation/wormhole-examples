@@ -28,7 +28,10 @@ export async function relay(chainId: ChainId, signedVAA) {
   } else if (chainId === CHAIN_ID_SOLANA) {
     await relaySolana(chainConfigInfo, signedVAA);
   } else if (chainId === CHAIN_ID_TERRA) {
-    await relayTerra(chainConfigInfo, signedVAA);
+    if (!process.env.TERRA_CHAIN_ID) {
+      return [false, "TERRA_CHAIN_ID env parameter is not set!"];
+    }
+    await relayTerra(chainConfigInfo, signedVAA, process.env.TERRA_CHAIN_ID);
   } else {
     console.error("Improper chain ID");
     throw "invalid chain id";

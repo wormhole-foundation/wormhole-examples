@@ -5,11 +5,12 @@ import { ChainConfigInfo } from "../configureEnv";
 
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
-  signedVAA: string
+  signedVAA: string,
+  terraChainId: string
 ) {
   const lcdConfig = {
     URL: chainConfigInfo.nodeUrl,
-    chainID: "localterra",
+    chainID: terraChainId,
     name: "localhost",
   };
   const lcd = new LCDClient(lcdConfig);
@@ -19,7 +20,8 @@ export async function relayTerra(
   const wallet = lcd.wallet(mk);
 
   // console.log(
-  //   "relaying to terra, private key: [%s], tokenBridgeAddress: [%s], accAddress: [%s], signedVAA: [%s]",
+  //   "relaying to terra, terraChainId: [%s], private key: [%s], tokenBridgeAddress: [%s], accAddress: [%s], signedVAA: [%s]",
+  //   terraChainId,
   //   chainConfigInfo.walletPrivateKey,
   //   chainConfigInfo.tokenBridgeAddress,
   //   wallet.key.accAddress,
