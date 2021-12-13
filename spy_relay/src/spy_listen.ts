@@ -241,6 +241,6 @@ async function storeInRedis(redisClient, name: string, value: string) {
     console.error("invalid value");
     return;
   }
-  await redisClient.select(0);
+  await redisClient.select(helpers.INCOMING);
   await redisClient.set(name, value);
 }
