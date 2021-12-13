@@ -44,11 +44,11 @@ export async function spy_listen() {
     console.log("spy_relay will process pyth messages");
   }
 
-  // Connect to redis
-  var myRedisClient;
-  async () => {
-    myRedisClient = await connectToRedis();
-  };
+  // Connect to redis globally
+  // var myRedisClient;
+  // async () => {
+  //   myRedisClient = await connectToRedis();
+  // };
 
   setDefaultWasm("node");
 
@@ -140,7 +140,7 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
       storeKey.sequence,
       helpers.storePayloadToJson(storePayload)
     );
-    storeInRedis(
+    await storeInRedis(
       myRedisClient,
       helpers.storeKeyToJson(storeKey),
       helpers.storePayloadToJson(storePayload)
@@ -229,5 +229,18 @@ async function connectToRedis() {
 }
 
 async function storeInRedis(redisClient, name: string, value: string) {
+  if (!redisClient) {
+    console.error("invalid redisClient");
+    return;
+  }
+  if (!name) {
+    console.error("invalid name");
+    return;
+  }
+  if (!value) {
+    console.error("invalid value");
+    return;
+  }
+  await redisClient.select(0);
   await redisClient.set(name, value);
 }
