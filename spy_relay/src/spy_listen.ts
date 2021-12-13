@@ -161,7 +161,7 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
 
     // console.log("relaying vaa");
     // try {
-    //   relay(storeKey.chain_id as ChainId, vaaBytes);
+    //   await relay(storeKey.chain_id as ChainId, vaaBytes);
     // } catch (e) {
     //   console.error("failed to relay transfer vaa:", e);
     // }
