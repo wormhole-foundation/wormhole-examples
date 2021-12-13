@@ -2,8 +2,11 @@ import { spy_listen } from "./spy_listen";
 import { spy_worker } from "./spy_worker";
 import { spy_rest } from "./spy_rest";
 import * as helpers from "./helpers";
+import { RelayerEnvironment, validateEnvironment } from "./configureEnv";
 
 require("dotenv").config();
+
+const env: RelayerEnvironment = validateEnvironment();
 
 var runListen: boolean = true;
 var runWorker: boolean = true;

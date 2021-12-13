@@ -14,6 +14,10 @@ export async function relayEVM(
   const provider = new ethers.providers.WebSocketProvider(
     chainConfigInfo.nodeUrl
   );
+  // console.log(
+  //   "relaying to evm, private key: [%s]",
+  //   chainConfigInfo.walletPrivateKey
+  // );
   const signer = new ethers.Wallet(chainConfigInfo.walletPrivateKey, provider);
   const receipt = unwrapNative
     ? await redeemOnEthNative(
@@ -27,5 +31,5 @@ export async function relayEVM(
         hexToUint8Array(signedVAA)
       );
   provider.destroy();
-  console.log("successfully redeemed on evm", receipt);
+  console.log("redeemed on evm: receipt:", receipt);
 }

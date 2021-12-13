@@ -115,7 +115,7 @@ async function encodeEmitterAddress(
 }
 
 async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
-  console.log("processVaa");
+  // console.log("processVaa");
   console.log(vaaBytes);
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   console.log(parsedVAA);
@@ -147,21 +147,25 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
     );
 
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
-    console.log(
-      "transfer: emitter: [%d:%s], seqNum: %d, payload: origin: [%d:%s], target: [%d:%s],  amount: %d",
-      parsedVAA.emitter_chain,
-      uint8ArrayToHex(parsedVAA.emitter_address),
-      parsedVAA.sequence,
-      transferPayload.originChain,
-      transferPayload.originAddress,
-      transferPayload.targetChain,
-      transferPayload.targetAddress,
-      transferPayload.amount
-    );
+    // console.log(
+    //   "transfer: emitter: [%d:%s], seqNum: %d, payload: origin: [%d:%s], target: [%d:%s],  amount: %d",
+    //   parsedVAA.emitter_chain,
+    //   uint8ArrayToHex(parsedVAA.emitter_address),
+    //   parsedVAA.sequence,
+    //   transferPayload.originChain,
+    //   transferPayload.originAddress,
+    //   transferPayload.targetChain,
+    //   transferPayload.targetAddress,
+    //   transferPayload.amount
+    // );
 
-    // console.log("relaying vaa");
+    // console.log(
+    //   "relaying vaa from chain id %d to chain id %d",
+    //   parsedVAA.emitter_chain,
+    //   transferPayload.targetChain
+    // );
     // try {
-    //   await relay(storeKey.chain_id as ChainId, vaaBytes);
+    //   await relay(transferPayload.targetChain, storePayload.vaa_bytes);
     // } catch (e) {
     //   console.error("failed to relay transfer vaa:", e);
     // }

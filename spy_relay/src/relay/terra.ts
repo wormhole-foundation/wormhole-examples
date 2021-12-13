@@ -9,7 +9,7 @@ export async function relayTerra(
 ) {
   const lcdConfig = {
     URL: chainConfigInfo.nodeUrl,
-    chainID: "columbus-5",
+    chainID: "localterra",
     name: "localhost",
   };
   const lcd = new LCDClient(lcdConfig);
@@ -17,6 +17,14 @@ export async function relayTerra(
     mnemonic: chainConfigInfo.walletPrivateKey,
   });
   const wallet = lcd.wallet(mk);
+
+  // console.log(
+  //   "relaying to terra, private key: [%s], tokenBridgeAddress: [%s], accAddress: [%s], signedVAA: [%s]",
+  //   chainConfigInfo.walletPrivateKey,
+  //   chainConfigInfo.tokenBridgeAddress,
+  //   wallet.key.accAddress,
+  //   signedVAA
+  // );
 
   const msg = await redeemOnTerra(
     chainConfigInfo.tokenBridgeAddress,
@@ -44,4 +52,6 @@ export async function relayTerra(
   });
 
   const receipt = await lcd.tx.broadcast(tx);
+
+  console.log("redeemed on terra: receipt:", receipt);
 }

@@ -6,13 +6,25 @@ import { ChainConfigInfo } from "../configureEnv";
 
 export async function relaySolana(
   chainConfigInfo: ChainConfigInfo,
-  signedVAA: string
+  signedVAAString: string
 ) {
   //TODO native transfer & create associated token account
   //TODO close connection
+  const signedVaaArray = hexToUint8Array(signedVAAString);
+  const signedVaaBuffer = Buffer.from(signedVaaArray);
   const connection = new Connection(chainConfigInfo.nodeUrl, "confirmed");
+  // console.log(
+  //   "relaying to solana, private key: [%s], bridgeAddress: [%s], signedVAAString: [%s]",
+  //   chainConfigInfo.walletPrivateKey,
+  //   chainConfigInfo.bridgeAddress,
+  //   signedVAAString,
+  //   ", signedVaaArray",
+  //   signedVaaArray,
+  //   ", signedVaaBuffer",
+  //   signedVaaBuffer
+  // );
   const keypair = Keypair.fromSecretKey(
-    new TextEncoder().encode(chainConfigInfo.walletPrivateKey)
+    Uint8Array.from(JSON.parse(chainConfigInfo.walletPrivateKey))
   );
   const payerAddress = keypair.publicKey.toString();
   await postVaaSolana(
@@ -23,13 +35,19 @@ export async function relaySolana(
     },
     chainConfigInfo.bridgeAddress,
     payerAddress,
-    Buffer.from(signedVAA)
+    signedVaaBuffer
   );
-  const receipt = await redeemOnSolana(
+  const unsignedTransaction = await redeemOnSolana(
     connection,
     chainConfigInfo.bridgeAddress,
     chainConfigInfo.tokenBridgeAddress,
     payerAddress,
-    hexToUint8Array(signedVAA)
+    signedVaaArray
   );
+  unsignedTransaction.partialSign(keypair);
+  const txid = await connection.sendRawTransaction(
+    unsignedTransaction.serialize()
+  );
+  await connection.confirmTransaction(txid);
+  console.log("redeemed on solana: txid: [%s]", txid);
 }
