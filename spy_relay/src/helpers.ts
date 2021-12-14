@@ -13,6 +13,29 @@ export type StorePayload = {
   vaa_bytes: string;
 };
 
+export type StoreWorkingPayload = {
+  // vaa_bytes is the same as in the StorePayload type.
+  vaa_bytes: string;
+  status: string;
+  timestamp: string;
+};
+
+export function initWorkingPayload(): StoreWorkingPayload {
+  return {
+    vaa_bytes: "",
+    status: "Pending",
+    timestamp: Date().toString(),
+  };
+}
+
+export function workingPayloadToJson(payload: StoreWorkingPayload): string {
+  return JSON.stringify(payload);
+}
+
+export function workingPayloadFromJson(json: string): StoreWorkingPayload {
+  return JSON.parse(json);
+}
+
 export function storeKeyFromParsedVAA(parsedVAA: any): StoreKey {
   return {
     chain_id: parsedVAA.emitter_chain as number,

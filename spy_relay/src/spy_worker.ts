@@ -1,19 +1,19 @@
-import {
-  createSpyRPCServiceClient,
-  subscribeSignedVAA,
-} from "@certusone/wormhole-spydk";
+// import {
+//   createSpyRPCServiceClient,
+//   subscribeSignedVAA,
+// } from "@certusone/wormhole-spydk";
 
-import {
-  ChainId,
-  CHAIN_ID_SOLANA,
-  CHAIN_ID_TERRA,
-  hexToUint8Array,
-  uint8ArrayToHex,
-  parseTransferPayload,
-  getEmitterAddressEth,
-  getEmitterAddressSolana,
-  getEmitterAddressTerra,
-} from "@certusone/wormhole-sdk";
+// import {
+//   ChainId,
+//   CHAIN_ID_SOLANA,
+//   CHAIN_ID_TERRA,
+//   hexToUint8Array,
+//   uint8ArrayToHex,
+//   parseTransferPayload,
+//   getEmitterAddressEth,
+//   getEmitterAddressSolana,
+//   getEmitterAddressTerra,
+// } from "@certusone/wormhole-sdk";
 
 import {
   importCoreWasm,
@@ -24,6 +24,7 @@ import { createClient } from "redis";
 
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
+import { relay } from "./relay/main";
 
 export async function spy_worker() {
   require("dotenv").config();
@@ -36,7 +37,7 @@ export async function spy_worker() {
   setDefaultWasm("node");
 
   for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
-    console.log("staring worker %d", workerIdx);
+    console.log("starting worker %d", workerIdx);
     (async () => {
       let myWorkerIdx = workerIdx;
       const redisClient = createClient();
@@ -48,23 +49,83 @@ export async function spy_worker() {
         }
       });
       await redisClient.connect();
-      for await (const si_key of redisClient.scanIterator()) {
-        const si_keyval = await redisClient.get(si_key);
-        if (si_keyval) {
-          console.log("SI: %s => %s", si_key, si_keyval);
-        } else {
-          console.error("No si_keyval returned!");
+      while (true) {
+        await redisClient.select(helpers.INCOMING);
+        for await (const si_key of redisClient.scanIterator()) {
+          const si_value = await redisClient.get(si_key);
+          if (si_value) {
+            // console.log("SI: %s => %s", si_key, si_value);
+            // Get result from evaluation algorithm
+            // If true, then do the transfer
+            const shouldDo = evaluate(si_value);
+            if (shouldDo) {
+              // Move this entry to different store
+              await redisClient.select(helpers.INCOMING);
+              await redisClient.del(si_key);
+              await redisClient.select(helpers.WORKING);
+              var oldPayload = helpers.storePayloadFromJson(si_value);
+              var newPayload: helpers.StoreWorkingPayload;
+              newPayload = helpers.initWorkingPayload();
+              newPayload.vaa_bytes = oldPayload.vaa_bytes;
+              await redisClient.set(
+                si_key,
+                helpers.workingPayloadToJson(newPayload)
+              );
+              // Process request
+              await processRequest(redisClient, si_key);
+            }
+          } else {
+            console.error("No si_keyval returned!");
+          }
         }
+        // add sleep
+        await sleep(3000);
       }
-      // for (var i = 0; i < 5; i++) {
-      //   await sleep(1000 * myWorkerIdx);
-      //   console.log("worker %d: %d", myWorkerIdx, i);
-      // }
 
       console.log("worker %d exiting", myWorkerIdx);
       await redisClient.quit();
     })();
   }
+}
+
+function evaluate(blob: string) {
+  // console.log("Checking [%s]", blob);
+  // if (blob.startsWith("01000000000100e", 14)) {
+  // if (Math.floor(Math.random() * 5) == 1) {
+  // console.log("Evaluated true...");
+  return true;
+  // }
+  // console.log("Evaluated false...");
+  // return false;
+}
+
+async function processRequest(rClient, key: string) {
+  console.log("Processing request...");
+  await rClient.select(helpers.WORKING);
+  var value: string = await rClient.get(key);
+  if (!value) {
+    console.error("processRequest could not find key [%s]", key);
+    return;
+  }
+  var storeKey = helpers.storeKeyFromJson(key);
+  var payload: helpers.StoreWorkingPayload =
+    helpers.workingPayloadFromJson(value);
+  // Actually do the processing here and update status and time field
+  try {
+    console.log(
+      "processRequest() - Calling with vaa_bytes [%s]",
+      payload.vaa_bytes
+    );
+    var relayResult = await relay(payload.vaa_bytes);
+    console.log("processRequest() - relay returned", relayResult);
+    payload.status = relayResult;
+  } catch (e) {
+    console.error("processRequest() - failed to relay transfer vaa:", e);
+    payload.status = "Failed: " + e;
+  }
+  payload.timestamp = new Date().toString();
+  value = helpers.workingPayloadToJson(payload);
+  await rClient.set(key, value);
 }
 
 function sleep(ms) {

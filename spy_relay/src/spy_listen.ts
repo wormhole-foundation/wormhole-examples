@@ -139,6 +139,7 @@ async function processVaa(vaaBytes, processPyth: boolean) {
       helpers.storeKeyToJson(storeKey),
       helpers.storePayloadToJson(storePayload)
     );
+    console.log("Finished storing in redis.");
 
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
     console.log(
