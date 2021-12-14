@@ -50,4 +50,5 @@ export async function relaySolana(
   );
   await connection.confirmTransaction(txid);
   console.log("redeemed on solana: txid: [%s]", txid);
+  return txid;
 }

@@ -1,9 +1,14 @@
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+
 import {
   ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
+  hexToUint8Array,
   isEVMChain,
+  parseTransferPayload,
 } from "@certusone/wormhole-sdk";
+
 import { RelayerEnvironment, validateEnvironment } from "../configureEnv";
 import { relayEVM } from "./evm";
 import { relaySolana } from "./solana";
@@ -15,25 +20,40 @@ function getChainConfigInfo(chainId: ChainId) {
   return env.supportedChains.find((x) => x.chainId === chainId);
 }
 
-export async function relay(chainId: ChainId, signedVAA) {
-  const unwrapNative = false;
-  const chainConfigInfo = getChainConfigInfo(chainId);
-  if (!chainConfigInfo) {
-    console.error("Improper chain ID:", chainId);
-    return [false, "invalid chain id"];
-  }
+export async function relay(signedVAA: string): Promise<any> {
+  const { parse_vaa } = await importCoreWasm();
+  const parsedVAA = parse_vaa(hexToUint8Array(signedVAA));
+  if (parsedVAA.payload[0] === 1) {
+    var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
 
-  if (isEVMChain(chainId)) {
-    await relayEVM(chainConfigInfo, signedVAA, unwrapNative);
-  } else if (chainId === CHAIN_ID_SOLANA) {
-    await relaySolana(chainConfigInfo, signedVAA);
-  } else if (chainId === CHAIN_ID_TERRA) {
-    if (!process.env.TERRA_CHAIN_ID) {
-      return [false, "TERRA_CHAIN_ID env parameter is not set!"];
+    const unwrapNative = false;
+    const chainConfigInfo = getChainConfigInfo(transferPayload.targetChain);
+    if (!chainConfigInfo) {
+      console.error("Improper chain ID:", transferPayload.targetChain);
+      return "invalid chain id";
     }
-    await relayTerra(chainConfigInfo, signedVAA, process.env.TERRA_CHAIN_ID);
-  } else {
+
+    if (isEVMChain(transferPayload.targetChain)) {
+      return await relayEVM(chainConfigInfo, signedVAA, unwrapNative);
+    }
+
+    if (transferPayload.targetChain === CHAIN_ID_SOLANA) {
+      return await relaySolana(chainConfigInfo, signedVAA);
+    }
+
+    if (transferPayload.targetChain === CHAIN_ID_TERRA) {
+      if (!process.env.TERRA_CHAIN_ID) {
+        return "TERRA_CHAIN_ID env parameter is not set!";
+      }
+
+      return await relayTerra(
+        chainConfigInfo,
+        signedVAA,
+        process.env.TERRA_CHAIN_ID
+      );
+    }
+
     console.error("Improper chain ID");
-    throw "invalid chain id";
+    return "invalid chain id";
   }
 }

@@ -56,4 +56,5 @@ export async function relayTerra(
   const receipt = await lcd.tx.broadcast(tx);
 
   console.log("redeemed on terra: receipt:", receipt);
+  return receipt;
 }

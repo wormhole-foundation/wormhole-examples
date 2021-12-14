@@ -19,10 +19,7 @@ import {
   subscribeSignedVAA,
 } from "@certusone/wormhole-spydk";
 
-import {
-  importCoreWasm,
-  setDefaultWasm,
-} from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
 
@@ -49,8 +46,6 @@ export async function spy_listen() {
   // async () => {
   //   myRedisClient = await connectToRedis();
   // };
-
-  setDefaultWasm("node");
 
   (async () => {
     var filter = {};
@@ -89,10 +84,8 @@ export async function spy_listen() {
     const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
     const stream = await subscribeSignedVAA(client, filter);
 
-    const { parse_vaa } = await importCoreWasm();
-
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(parse_vaa, vaaBytes, processPyth);
+      processVaa(vaaBytes, processPyth);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
@@ -114,9 +107,10 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
+async function processVaa(vaaBytes, processPyth: boolean) {
   // console.log("processVaa");
   console.log(vaaBytes);
+  const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   console.log(parsedVAA);
 
@@ -147,17 +141,17 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
     );
 
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
-    // console.log(
-    //   "transfer: emitter: [%d:%s], seqNum: %d, payload: origin: [%d:%s], target: [%d:%s],  amount: %d",
-    //   parsedVAA.emitter_chain,
-    //   uint8ArrayToHex(parsedVAA.emitter_address),
-    //   parsedVAA.sequence,
-    //   transferPayload.originChain,
-    //   transferPayload.originAddress,
-    //   transferPayload.targetChain,
-    //   transferPayload.targetAddress,
-    //   transferPayload.amount
-    // );
+    console.log(
+      "transfer: emitter: [%d:%s], seqNum: %d, payload: origin: [%d:%s], target: [%d:%s],  amount: %d",
+      parsedVAA.emitter_chain,
+      uint8ArrayToHex(parsedVAA.emitter_address),
+      parsedVAA.sequence,
+      transferPayload.originChain,
+      transferPayload.originAddress,
+      transferPayload.targetChain,
+      transferPayload.targetAddress,
+      transferPayload.amount
+    );
 
     // console.log(
     //   "relaying vaa from chain id %d to chain id %d",
@@ -165,7 +159,9 @@ async function processVaa(parse_vaa, vaaBytes, processPyth: boolean) {
     //   transferPayload.targetChain
     // );
     // try {
-    //   await relay(transferPayload.targetChain, storePayload.vaa_bytes);
+    //   // result is an object that could be jsonified and stored as the status in the completed store. The REST query could return that.
+    //   var result = await relay(storePayload.vaa_bytes);
+    //   console.log("relay returned", result);
     // } catch (e) {
     //   console.error("failed to relay transfer vaa:", e);
     // }

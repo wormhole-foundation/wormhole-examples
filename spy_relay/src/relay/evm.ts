@@ -32,4 +32,5 @@ export async function relayEVM(
       );
   provider.destroy();
   console.log("redeemed on evm: receipt:", receipt);
+  return receipt;
 }
