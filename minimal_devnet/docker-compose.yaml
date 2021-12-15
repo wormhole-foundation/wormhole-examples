@@ -1,0 +1,117 @@
+services:
+  guardian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    cap_add:
+      - IPC_LOCK
+    hostname: guardian-0
+    ports:
+      - "7070:7070"
+      - "7071:7071"
+    command:
+      - ./wait-for-it.sh
+      - -t
+      - "0"
+      - eth2-deploy:2000
+      - --
+      - /guardiand
+      - node
+      - --ethRPC
+      - ws://eth1:8545
+      - --bscRPC
+      - ws://eth2:8546
+      - --polygonRPC
+      - ws://eth1:8545
+      - --terraWS
+      - ws://terra-terrad:26657/websocket
+      - --terraLCD
+      - http://terra-lcd:1317
+      - --terraContract
+      - terra18vd8fpwxzck93qlwghaj6arh4p7c5n896xzem5
+      - --solanaContract
+      - Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o
+      - --solanaWS
+      - ws://solana-devnet:8900
+      - --solanaRPC
+      - http://solana-devnet:8899
+      - --unsafeDevMode
+      - --guardianKey
+      - /tmp/bridge.key
+      - --publicRPC
+      - "[::]:7070"
+      - --publicWeb
+      - "[::]:7071"
+      - --adminSocket
+      - /tmp/admin.sock
+      - --dataDir
+      - /tmp/data
+    depends_on:
+      - eth1
+      - eth2
+  eth1:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    ports:
+      - "8545:8545"
+    command:
+      - npx
+      - ganache-cli
+      - --deterministic
+      - --time="1970-01-01T00:00:00+00:00"
+      - --host=0.0.0.0
+  eth1-deploy:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    command:
+      - /bin/sh
+      - -c
+      - "npm run migrate && npx truffle exec scripts/deploy_test_token.js && npx truffle exec scripts/register_bsc_chain.js && nc -lkp 2000 0.0.0.0"
+    depends_on:
+      - eth1
+  eth1-mine:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    command:
+      - /bin/sh
+      - -c
+      - "npx truffle exec mine.js"
+    depends_on:
+      - eth1
+  eth2:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    ports:
+      - "8546:8546"
+    command:
+      - npx
+      - ganache-cli
+      - --deterministic
+      - --time="1970-01-01T00:00:00+00:00"
+      - --host=0.0.0.0
+      - --chainId=1397
+      - --port=8546
+  eth2-deploy:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    command:
+      - /bin/sh
+      - -c
+      - "./wait-for-it.sh -t 0 eth1-deploy:2000 -- sed -i 's/CHAIN_ID=0x2/CHAIN_ID=0x4/g' .env && mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && npx truffle migrate --network development2 && npx truffle exec scripts/deploy_test_token.js --network development2 && npx truffle exec scripts/register_eth_chain.js --network development2 && nc -lkp 2000 0.0.0.0"
+    depends_on:
+      - eth2
+  eth2-mine:
+    build:
+      context: .
+      dockerfile: Dockerfile.eth
+    command:
+      - /bin/sh
+      - -c
+      - "npx truffle exec mine.js --network development2"
+    depends_on:
+      - eth2
