@@ -26,8 +26,8 @@ contract MsgImpl {
         sequence = _wormhole.publishMessage(nonce, str, 1);
         return sequence;
     }
-    function wormhole() public view returns (address) {
-        return a;
+    function wormhole() public view returns (IWormhole) {
+        return _wormhole;
     }
 }
 

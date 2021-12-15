@@ -21,7 +21,7 @@
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject",
-    "typechain": "cp -r ../ethereum/build/contracts ./contracts && typechain --target=ethers-v5 --out-dir=src/ethers-contracts contracts/*.json"
+    "typechain": "typechain --target=ethers-v5 --out-dir=src/ethers-contracts ../ethereum/build/contracts/*.json"
   },
   "eslintConfig": {
     "extends": [

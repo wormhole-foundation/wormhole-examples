@@ -16,7 +16,7 @@ import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSigned
 const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
 const BSC_CONTRACT_ADDRESS = "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee";
 const BSC_RPC = "http://localhost:8546";
-const ETH_CONTRACT_ADDRESS = "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee";
+const ETH_CONTRACT_ADDRESS = "0xe97DbD7116D168190F8A6E7beB1092c103c53a12";
 const ETH_RPC = "http://localhost:8545";
 
 const chainToNetwork = (c) =>
@@ -63,8 +63,8 @@ function EthChain ({c, sendCB, fetchCb}) {
 
       const sequence = parseSequenceFromLogEth(
         sendReceipt,
-//        await sendMsg.wormhole()
-        '0xC89Ce4735882C9F0f0FE26686c53074E09B0D550'  //TBD!
+        await sendMsg.wormhole()
+//        '0xC89Ce4735882C9F0f0FE26686c53074E09B0D550'  //TBD!
       );
       const { vaaBytes } = await getSignedVAAWithRetry(
         WORMHOLE_RPC_HOSTS,
