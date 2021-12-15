@@ -4,8 +4,10 @@ import {
   attestFromSolana,
   CHAIN_ID_ETH,
   CHAIN_ID_SOLANA,
+  CHAIN_ID_TERRA,
   createWrappedOnEth,
   createWrappedOnSolana,
+  createWrappedOnTerra,
   getEmitterAddressEth,
   getEmitterAddressSolana,
   getForeignAssetSolana,
@@ -37,6 +39,7 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 import { Connection, Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { LCDClient, MnemonicKey } from "@terra-money/terra.js";
 import axios from "axios";
 import {
   ETH_CORE_BRIDGE_ADDRESS,
@@ -49,6 +52,11 @@ import {
   SOLANA_PRIVATE_KEY,
   SOLANA_TOKEN_BRIDGE_ADDRESS,
   SPY_RELAY_URL,
+  TERRA_CHAIN_ID,
+  TERRA_GAS_PRICES_URL,
+  TERRA_NODE_URL,
+  TERRA_PRIVATE_KEY,
+  TERRA_TOKEN_BRIDGE_ADDRESS,
   TEST_ERC20,
   TEST_SOLANA_TOKEN,
   WORMHOLE_RPC_HOSTS,
@@ -445,6 +453,204 @@ describe("Ethereum to Solana", () => {
     (async () => {
       var storeKey: string =
         CHAIN_ID_ETH.toString() +
+        "/" +
+        emitterAddress +
+        "/" +
+        sequence.toString();
+      try {
+        var query: string = SPY_RELAY_URL + "/query/" + storeKey;
+        console.log("Sending query to spy relay, query: [%s]", query);
+        const result = await axios.get(query);
+        console.log(
+          "status: ",
+          result.status,
+          ", statusText: ",
+          result.statusText,
+          ", data: ",
+          result.data
+        );
+
+        expect(result).toHaveProperty("status");
+        expect(result.status).toBe(200);
+        expect(result).toHaveProperty("data");
+
+        console.log(result.data);
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to send query to spy relay");
+      }
+    })();
+  });
+});
+
+describe("Ethereum to Terra", () => {
+  test("Attest Ethereum ERC-20 to Terra", (done) => {
+    (async () => {
+      try {
+        // create a signer for Eth
+        const provider = new ethers.providers.WebSocketProvider(ETH_NODE_URL);
+        const signer = new ethers.Wallet(ETH_PRIVATE_KEY, provider);
+        // attest the test token
+        const receipt = await attestFromEth(
+          ETH_TOKEN_BRIDGE_ADDRESS,
+          signer,
+          TEST_ERC20
+        );
+        // get the sequence from the logs (needed to fetch the vaa)
+        const sequence = parseSequenceFromLogEth(
+          receipt,
+          ETH_CORE_BRIDGE_ADDRESS
+        );
+        const emitterAddress = getEmitterAddressEth(ETH_TOKEN_BRIDGE_ADDRESS);
+        // poll until the guardian(s) witness and sign the vaa
+        const { vaaBytes: signedVAA } = await getSignedVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          CHAIN_ID_ETH,
+          emitterAddress,
+          sequence,
+          {
+            transport: NodeHttpTransport(),
+          }
+        );
+        const lcd = new LCDClient({
+          URL: TERRA_NODE_URL,
+          chainID: TERRA_CHAIN_ID,
+        });
+        const mk = new MnemonicKey({
+          mnemonic: TERRA_PRIVATE_KEY,
+        });
+        const wallet = lcd.wallet(mk);
+        const msg = await createWrappedOnTerra(
+          TERRA_TOKEN_BRIDGE_ADDRESS,
+          wallet.key.accAddress,
+          signedVAA
+        );
+        const gasPrices = await axios
+          .get(TERRA_GAS_PRICES_URL)
+          .then((result) => result.data);
+        const feeEstimate = await lcd.tx.estimateFee(
+          wallet.key.accAddress,
+          [msg],
+          {
+            feeDenoms: ["uluna"],
+            gasPrices,
+          }
+        );
+        const tx = await wallet.createAndSignTx({
+          msgs: [msg],
+          memo: "test",
+          feeDenoms: ["uluna"],
+          gasPrices,
+          fee: feeEstimate,
+        });
+        await lcd.tx.broadcast(tx);
+        provider.destroy();
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to attest from Ethereum to Terra");
+      }
+    })();
+  });
+  // TODO: it is attested
+  test("Send Ethereum ERC-20 to Terra", (done) => {
+    (async () => {
+      try {
+        // create a signer for Eth
+        const provider = new ethers.providers.WebSocketProvider(ETH_NODE_URL);
+        const signer = new ethers.Wallet(ETH_PRIVATE_KEY, provider);
+        const amount = parseUnits("1", 18);
+        // approve the bridge to spend tokens
+        await approveEth(ETH_TOKEN_BRIDGE_ADDRESS, TEST_ERC20, signer, amount);
+        const lcd = new LCDClient({
+          URL: TERRA_NODE_URL,
+          chainID: TERRA_CHAIN_ID,
+        });
+        const mk = new MnemonicKey({
+          mnemonic: TERRA_PRIVATE_KEY,
+        });
+        const wallet = lcd.wallet(mk);
+        // transfer tokens
+        const receipt = await transferFromEth(
+          ETH_TOKEN_BRIDGE_ADDRESS,
+          signer,
+          TEST_ERC20,
+          amount,
+          CHAIN_ID_TERRA,
+          hexToUint8Array(
+            nativeToHexString(wallet.key.accAddress, CHAIN_ID_TERRA) || ""
+          )
+        );
+        // get the sequence from the logs (needed to fetch the vaa)
+        sequence = parseSequenceFromLogEth(receipt, ETH_CORE_BRIDGE_ADDRESS);
+        emitterAddress = getEmitterAddressEth(ETH_TOKEN_BRIDGE_ADDRESS);
+        // poll until the guardian(s) witness and sign the vaa
+        const { vaaBytes: signedVAA } = await getSignedVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          CHAIN_ID_ETH,
+          emitterAddress,
+          sequence,
+          {
+            transport: NodeHttpTransport(),
+          }
+        );
+        // expect(
+        //   await getIsTransferCompletedTerra(
+        //     TERRA_TOKEN_BRIDGE_ADDRESS,
+        //     signedVAA,
+        //     wallet.key.accAddress,
+        //     lcd,
+        //     TERRA_GAS_PRICES_URL
+        //   )
+        // ).toBe(false);
+        // const msg = await redeemOnTerra(
+        //   TERRA_TOKEN_BRIDGE_ADDRESS,
+        //   wallet.key.accAddress,
+        //   signedVAA
+        // );
+        // const gasPrices = await axios
+        //   .get(TERRA_GAS_PRICES_URL)
+        //   .then((result) => result.data);
+        // const feeEstimate = await lcd.tx.estimateFee(
+        //   wallet.key.accAddress,
+        //   [msg],
+        //   {
+        //     memo: "localhost",
+        //     feeDenoms: ["uluna"],
+        //     gasPrices,
+        //   }
+        // );
+        // const tx = await wallet.createAndSignTx({
+        //   msgs: [msg],
+        //   memo: "localhost",
+        //   feeDenoms: ["uluna"],
+        //   gasPrices,
+        //   fee: feeEstimate,
+        // });
+        // await lcd.tx.broadcast(tx);
+        // expect(
+        //   await getIsTransferCompletedTerra(
+        //     TERRA_TOKEN_BRIDGE_ADDRESS,
+        //     signedVAA,
+        //     wallet.key.accAddress,
+        //     lcd,
+        //     TERRA_GAS_PRICES_URL
+        //   )
+        // ).toBe(true);
+        provider.destroy();
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to send from Ethereum to Terra");
+      }
+    })();
+  });
+
+  test("Query Spy Relay via REST", (done) => {
+    (async () => {
+      var storeKey: string =
+        CHAIN_ID_TERRA.toString() +
         "/" +
         emitterAddress +
         "/" +
