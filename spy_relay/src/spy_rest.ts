@@ -26,47 +26,26 @@ export async function spy_rest(restPort: number) {
         sequence: parseInt(req.params.sequence),
       };
 
+      await rclient.select(helpers.INCOMING);
       var result = await rclient.get(helpers.storeKeyToJson(key));
-      console.log(
-        "REST query of [%s] returning [%s]",
-        helpers.storeKeyToJson(key),
-        result
-      );
+      if (result) {
+        console.log(
+          "REST query of [%s] found entry in incoming store, returning [%s]",
+          helpers.storeKeyToJson(key),
+          result
+        );
+      } else {
+        await rclient.select(helpers.WORKING);
+        var result = await rclient.get(helpers.storeKeyToJson(key));
+        console.log(
+          "REST query of [%s] looked for entry in incoming store, returning [%s]",
+          helpers.storeKeyToJson(key),
+          result
+        );
+      }
 
       res.json(result);
     });
-
-    app.get(
-      "/submit/:chain_id/:emitter_address/:sequence",
-      async (req, res) => {
-        var key: helpers.StoreKey = {
-          chain_id: parseInt(req.params.chain_id),
-          emitter_address: req.params.emitter_address,
-          sequence: parseInt(req.params.sequence),
-        };
-
-        var payload = await rclient.get(helpers.storeKeyToJson(key));
-        if (payload) {
-          var vaaBytes = helpers.storePayloadFromJson(payload).vaa_bytes;
-          console.log(
-            "REST submit of [%s], posting payload [%s], vaaBytes:",
-            helpers.storeKeyToJson(key),
-            payload,
-            vaaBytes
-          );
-
-          const result = await axios.post(RELAYER_URL, {
-            chainId: key.chain_id as ChainId,
-            signedVAA: vaaBytes,
-          });
-
-          // result = "submitted";
-          res.json(result);
-        } else {
-          res.json(null);
-        }
-      }
-    );
 
     app.get("/", (req, res) =>
       res.json("/query/<chain_id>/<emitter_address>/<sequence>")
