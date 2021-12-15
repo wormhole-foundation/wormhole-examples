@@ -1,0 +1,28 @@
+.App {
+  text-align: center;
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: top;
+  /* font-size: calc(10px + 2vmin); */
+  font-size: 16px;
+  color: white;
+}
+
+.chain-row-button {
+  margin:20px;
+  width:5rem;
+}
+
+.chain-row-text-area {
+  height: 100px;
+  color: lightGreen;
+  width:30%;
+  background-color: black;
+  resize:none;
+}

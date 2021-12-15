@@ -1,0 +1,37 @@
+{
+  "name": "wormhole",
+  "version": "1.0.0",
+  "description": "",
+  "main": "networks.js",
+  "devDependencies": {
+    "@chainsafe/truffle-plugin-abigen": "0.0.1",
+    "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^4.3.1",
+    "@openzeppelin/test-environment": "^0.1.6",
+    "@openzeppelin/test-helpers": "^0.5.9",
+    "@truffle/hdwallet-provider": "^1.2.0",
+    "chai": "^4.2.0",
+    "mocha": "^8.2.1",
+    "truffle": "^5.3.6",
+    "truffle-assertions": "^0.9.2",
+    "truffle-plugin-verify": "^0.5.11"
+  },
+  "scripts": {
+    "build": "truffle compile",
+    "test": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && truffle test",
+    "migrate": "mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && npm run migrate-eth && npm run migrate-bsc",
+    "migrate-eth": "sed -i 's/CHAIN_ID=0x4/CHAIN_ID=0x2/g' .env && truffle migrate",
+    "migrate-bsc": "sed -i 's/CHAIN_ID=0x2/CHAIN_ID=0x4/g' .env && truffle migrate --network development2",
+    "register": "truffle exec scripts/register_bsc_chain.js && truffle exec scripts/register_eth_chain.js --network development2",
+    "mint": "truffle exec scripts/mint_eth_chain.js && truffle exec scripts/mint_bsc_chain.js --network development2"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^10.0.0",
+    "elliptic": "^6.5.2",
+    "ganache-cli": "^6.12.1",
+    "jsonfile": "^4.0.0",
+    "solc": "^0.8.4"
+  }
+}
