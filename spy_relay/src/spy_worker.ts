@@ -86,14 +86,14 @@ export async function spy_worker() {
           }
         }
         // add sleep
-        await sleep(3000);
+        await helpers.sleep(3000);
       }
 
       console.log("worker %d exiting", myWorkerIdx);
       await redisClient.quit();
     })();
     // Stagger the threads so they don't all wake up at once
-    await sleep(500);
+    await helpers.sleep(500);
   }
 }
 
@@ -141,8 +141,4 @@ async function processRequest(rClient, key: string) {
   payload.timestamp = new Date().toString();
   value = helpers.workingPayloadToJson(payload);
   await rClient.set(key, value);
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
