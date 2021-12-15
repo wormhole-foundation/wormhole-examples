@@ -65,3 +65,7 @@ export function storePayloadToJson(storePayload: StorePayload): string {
 export function storePayloadFromJson(json: string): StorePayload {
   return JSON.parse(json);
 }
+
+export function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

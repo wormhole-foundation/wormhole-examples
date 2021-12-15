@@ -11,8 +11,9 @@ import {
   getEmitterAddressEth,
   getEmitterAddressSolana,
   getForeignAssetSolana,
-  // getIsTransferCompletedSolana,
-  // getIsTransferCompletedEth,
+  getIsTransferCompletedEth,
+  getIsTransferCompletedSolana,
+  getIsTransferCompletedTerra,
   hexToUint8Array,
   nativeToHexString,
   postVaaSolana,
@@ -62,6 +63,8 @@ import {
   WORMHOLE_RPC_HOSTS,
 } from "./consts";
 
+import { sleep } from "../helpers";
+
 setDefaultWasm("node");
 
 jest.setTimeout(60000);
@@ -90,6 +93,7 @@ test("Verify Spy Relay is running", (done) => {
 
 var sequence: string;
 var emitterAddress: string;
+var transferSignedVAA: Uint8Array;
 
 describe("Solana to Ethereum", () => {
   test("Attest Solana SPL to Ethereum", (done) => {
@@ -221,18 +225,47 @@ describe("Solana to Ethereum", () => {
           }
         );
         console.log("Got signed vaa: ", signedVAA);
-        // expect(
-        //   await getIsTransferCompletedEth(
-        //     ETH_TOKEN_BRIDGE_ADDRESS,
-        //     provider,
-        //     signedVAA
-        //   )
-        // ).toBe(false);
+        transferSignedVAA = signedVAA;
         provider.destroy();
         done();
       } catch (e) {
         console.error(e);
         done("An error occurred while trying to send from Solana to Ethereum");
+      }
+    })();
+  });
+
+  test("Spy Relay redeemed on Eth", (done) => {
+    (async () => {
+      try {
+        const provider = new ethers.providers.WebSocketProvider(ETH_NODE_URL);
+
+        var success: boolean = false;
+        for (let count = 0; count < 5 && !success; ++count) {
+          console.log(
+            "sleeping before querying spy relay",
+            new Date().toLocaleString()
+          );
+          await sleep(5000);
+          success = await getIsTransferCompletedEth(
+            ETH_TOKEN_BRIDGE_ADDRESS,
+            provider,
+            transferSignedVAA
+          );
+          console.log(
+            "getIsTransferCompletedEth returned %d, count is %d",
+            success,
+            count
+          );
+        }
+
+        expect(success).toBe(true);
+
+        provider.destroy();
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to redeem on Eth");
       }
     })();
   });
@@ -261,6 +294,9 @@ describe("Solana to Ethereum", () => {
         expect(result).toHaveProperty("status");
         expect(result.status).toBe(200);
         expect(result).toHaveProperty("data");
+        expect(JSON.parse(result.data).vaa_bytes).toBe(
+          uint8ArrayToHex(transferSignedVAA)
+        );
 
         console.log(result.data);
         done();
@@ -422,29 +458,56 @@ describe("Ethereum to Solana", () => {
             transport: NodeHttpTransport(),
           }
         );
+        console.log("Got signed vaa: ", signedVAA);
+        transferSignedVAA = signedVAA;
         // post vaa to Solana
-        await postVaaSolana(
-          connection,
-          async (transaction) => {
-            transaction.partialSign(keypair);
-            return transaction;
-          },
-          SOLANA_CORE_BRIDGE_ADDRESS,
-          payerAddress,
-          Buffer.from(signedVAA)
-        );
-        // expect(
-        //   await getIsTransferCompletedSolana(
-        //     SOLANA_TOKEN_BRIDGE_ADDRESS,
-        //     signedVAA,
-        //     connection
-        //   )
-        // ).toBe(false);
+        // await postVaaSolana(                     // I think this is the redeem!
+        //   connection,
+        //   async (transaction) => {
+        //     transaction.partialSign(keypair);
+        //     return transaction;
+        //   },
+        //   SOLANA_CORE_BRIDGE_ADDRESS,
+        //   payerAddress,
+        //   Buffer.from(signedVAA)
+        // );
         provider.destroy();
         done();
       } catch (e) {
         console.error(e);
         done("An error occurred while trying to send from Ethereum to Solana");
+      }
+    })();
+  });
+
+  test("Spy Relay redeemed on Sol", (done) => {
+    (async () => {
+      try {
+        const connection = new Connection(SOLANA_HOST, "confirmed");
+
+        var success: boolean = false;
+        for (let count = 0; count < 5 && !success; ++count) {
+          console.log(
+            "sleeping before querying spy relay",
+            new Date().toLocaleString()
+          );
+          await sleep(5000);
+          success = await getIsTransferCompletedSolana(
+            SOLANA_TOKEN_BRIDGE_ADDRESS,
+            transferSignedVAA,
+            connection
+          );
+          console.log(
+            "getIsTransferCompletedSolana returned %d, count is %d",
+            success,
+            count
+          );
+        }
+
+        done();
+      } catch (e) {
+        console.error(e);
+        done("An error occurred while trying to redeem on Sol");
       }
     })();
   });
@@ -473,6 +536,9 @@ describe("Ethereum to Solana", () => {
         expect(result).toHaveProperty("status");
         expect(result.status).toBe(200);
         expect(result).toHaveProperty("data");
+        expect(JSON.parse(result.data).vaa_bytes).toBe(
+          uint8ArrayToHex(transferSignedVAA)
+        );
 
         console.log(result.data);
         done();
@@ -595,6 +661,8 @@ describe("Ethereum to Terra", () => {
             transport: NodeHttpTransport(),
           }
         );
+        console.log("Got signed vaa: ", signedVAA);
+        transferSignedVAA = signedVAA;
         // expect(
         //   await getIsTransferCompletedTerra(
         //     TERRA_TOKEN_BRIDGE_ADDRESS,
@@ -643,6 +711,49 @@ describe("Ethereum to Terra", () => {
       } catch (e) {
         console.error(e);
         done("An error occurred while trying to send from Ethereum to Terra");
+      }
+    })();
+  });
+
+  test("Spy Relay redeemed on Terra", (done) => {
+    (async () => {
+      try {
+        const lcd = new LCDClient({
+          URL: TERRA_NODE_URL,
+          chainID: TERRA_CHAIN_ID,
+        });
+        const mk = new MnemonicKey({
+          mnemonic: TERRA_PRIVATE_KEY,
+        });
+        const wallet = lcd.wallet(mk);
+
+        var success: boolean = false;
+        for (let count = 0; count < 5 && !success; ++count) {
+          console.log(
+            "sleeping before querying spy relay",
+            new Date().toLocaleString()
+          );
+          await sleep(5000);
+          success = await await getIsTransferCompletedTerra(
+            TERRA_TOKEN_BRIDGE_ADDRESS,
+            transferSignedVAA,
+            wallet.key.accAddress,
+            lcd,
+            TERRA_GAS_PRICES_URL
+          );
+          console.log(
+            "getIsTransferCompletedTerra returned %d, count is %d",
+            success,
+            count
+          );
+        }
+
+        done();
+      } catch (e) {
+        console.error(e);
+        done(
+          "An error occurred while checking to see if redeem on Terra was successful"
+        );
       }
     })();
   });
