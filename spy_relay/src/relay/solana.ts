@@ -1,4 +1,8 @@
-import { hexToUint8Array, postVaaSolana } from "@certusone/wormhole-sdk";
+import {
+  getIsTransferCompletedSolana,
+  hexToUint8Array,
+  postVaaSolana,
+} from "@certusone/wormhole-sdk";
 import { redeemOnSolana } from "@certusone/wormhole-sdk";
 import { Connection, Keypair } from "@solana/web3.js";
 import { TextEncoder } from "util";
@@ -49,6 +53,13 @@ export async function relaySolana(
     unsignedTransaction.serialize()
   );
   await connection.confirmTransaction(txid);
-  console.log("redeemed on solana: txid: [%s]", txid);
-  return txid;
+
+  var success = await getIsTransferCompletedSolana(
+    chainConfigInfo.tokenBridgeAddress,
+    signedVaaArray,
+    connection
+  );
+
+  console.log("redeemed on solana: success:", success, ", txid:", txid);
+  return { redeemed: success, result: txid };
 }

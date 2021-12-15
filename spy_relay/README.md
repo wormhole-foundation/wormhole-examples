@@ -17,6 +17,14 @@ In order to run that docker use a command similar to:
 docker run --rm -p6379:6379 --name redis-docker -d redis
 ```
 
+To run the redis GUI do the following:
+
+```
+sudo apt-get install snapd
+sudo snap install redis-desktop-manager
+cd /var/lib/snapd/desktop/applications; ./redis-desktop-manager_rdm.desktop
+```
+
 To build the spy / guardian docker container:
 
 ```

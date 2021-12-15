@@ -1,4 +1,7 @@
-import { hexToUint8Array } from "@certusone/wormhole-sdk";
+import {
+  getIsTransferCompletedTerra,
+  hexToUint8Array,
+} from "@certusone/wormhole-sdk";
 import { redeemOnTerra, transferFromTerra } from "@certusone/wormhole-sdk";
 import { LCDClient, MnemonicKey, Msg, Wallet } from "@terra-money/terra.js";
 import { ChainConfigInfo } from "../configureEnv";
@@ -6,8 +9,10 @@ import { ChainConfigInfo } from "../configureEnv";
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
   signedVAA: string,
-  terraChainId: string
+  terraChainId: string,
+  gassPriceUrl: string
 ) {
+  const signedVaaArray = hexToUint8Array(signedVAA);
   const lcdConfig = {
     URL: chainConfigInfo.nodeUrl,
     chainID: terraChainId,
@@ -31,7 +36,7 @@ export async function relayTerra(
   const msg = await redeemOnTerra(
     chainConfigInfo.tokenBridgeAddress,
     wallet.key.accAddress,
-    hexToUint8Array(signedVAA)
+    signedVaaArray
   );
 
   //Alternate FCD methodology
@@ -55,6 +60,14 @@ export async function relayTerra(
 
   const receipt = await lcd.tx.broadcast(tx);
 
-  console.log("redeemed on terra: receipt:", receipt);
-  return receipt;
+  var success = await await getIsTransferCompletedTerra(
+    chainConfigInfo.tokenBridgeAddress,
+    signedVaaArray,
+    wallet.key.accAddress,
+    lcd,
+    gassPriceUrl
+  );
+
+  console.log("redeemed on terra: success:", success, ", receipt:", receipt);
+  return { redeemed: success, result: receipt };
 }

@@ -1,4 +1,5 @@
 import {
+  getIsTransferCompletedEth,
   hexToUint8Array,
   redeemOnEth,
   redeemOnEthNative,
@@ -11,6 +12,7 @@ export async function relayEVM(
   signedVAA: string,
   unwrapNative: boolean
 ) {
+  const signedVaaArray = hexToUint8Array(signedVAA);
   const provider = new ethers.providers.WebSocketProvider(
     chainConfigInfo.nodeUrl
   );
@@ -23,14 +25,24 @@ export async function relayEVM(
     ? await redeemOnEthNative(
         chainConfigInfo.tokenBridgeAddress,
         signer,
-        hexToUint8Array(signedVAA)
+        signedVaaArray
       )
     : await redeemOnEth(
         chainConfigInfo.tokenBridgeAddress,
         signer,
-        hexToUint8Array(signedVAA)
+        signedVaaArray
       );
-  provider.destroy();
+
   console.log("redeemed on evm: receipt:", receipt);
-  return receipt;
+
+  var success = await getIsTransferCompletedEth(
+    chainConfigInfo.tokenBridgeAddress,
+    provider,
+    signedVaaArray
+  );
+
+  provider.destroy();
+
+  console.log("redeemed on evm: success:", success, ", receipt:", receipt);
+  return { redeemed: success, result: receipt };
 }

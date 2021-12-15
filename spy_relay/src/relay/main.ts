@@ -46,10 +46,15 @@ export async function relay(signedVAA: string): Promise<any> {
         return "TERRA_CHAIN_ID env parameter is not set!";
       }
 
+      if (!process.env.TERRA_GAS_PRICES_URL) {
+        return "TERRA_GAS_PRICES_URL env parameter is not set!";
+      }
+
       return await relayTerra(
         chainConfigInfo,
         signedVAA,
-        process.env.TERRA_CHAIN_ID
+        process.env.TERRA_CHAIN_ID,
+        process.env.TERRA_GAS_PRICES_URL
       );
     }
 
