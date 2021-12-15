@@ -45,7 +45,7 @@ export async function spy_worker() {
         if (err) {
           console.error("Redis reader client failed to connect to Redis:", err);
         } else {
-          console.log("Redis reader client connected");
+          console.log("[%d]Redis reader client connected", myWorkerIdx);
         }
       });
       await redisClient.connect();
@@ -59,9 +59,16 @@ export async function spy_worker() {
             // If true, then do the transfer
             const shouldDo = evaluate(si_value);
             if (shouldDo) {
-              // Move this entry to different store
+              // Move this entry to from incoming store to working store
               await redisClient.select(helpers.INCOMING);
-              await redisClient.del(si_key);
+              if ((await redisClient.del(si_key)) === 0) {
+                console.log(
+                  "[%d]The key [%s] no longer exists in INCOMING",
+                  myWorkerIdx,
+                  si_key
+                );
+                return;
+              }
               await redisClient.select(helpers.WORKING);
               var oldPayload = helpers.storePayloadFromJson(si_value);
               var newPayload: helpers.StoreWorkingPayload;
@@ -71,7 +78,7 @@ export async function spy_worker() {
                 si_key,
                 helpers.workingPayloadToJson(newPayload)
               );
-              // Process request
+              // Process the request
               await processRequest(redisClient, si_key);
             }
           } else {
@@ -85,6 +92,8 @@ export async function spy_worker() {
       console.log("worker %d exiting", myWorkerIdx);
       await redisClient.quit();
     })();
+    // Stagger the threads so they don't all wake up at once
+    await sleep(500);
   }
 }
 
@@ -100,7 +109,8 @@ function evaluate(blob: string) {
 }
 
 async function processRequest(rClient, key: string) {
-  console.log("Processing request...");
+  console.log("Processing request [%s]...", key);
+  // Get the entry from the working store
   await rClient.select(helpers.WORKING);
   var value: string = await rClient.get(key);
   if (!value) {
@@ -110,6 +120,10 @@ async function processRequest(rClient, key: string) {
   var storeKey = helpers.storeKeyFromJson(key);
   var payload: helpers.StoreWorkingPayload =
     helpers.workingPayloadFromJson(value);
+  if (payload.status !== "Pending") {
+    console.log("This key [%s] has already been processed.", key);
+    return;
+  }
   // Actually do the processing here and update status and time field
   try {
     console.log(
@@ -123,6 +137,7 @@ async function processRequest(rClient, key: string) {
     console.error("processRequest() - failed to relay transfer vaa:", e);
     payload.status = "Failed: " + e;
   }
+  // Put result back into store
   payload.timestamp = new Date().toString();
   value = helpers.workingPayloadToJson(payload);
   await rClient.set(key, value);
