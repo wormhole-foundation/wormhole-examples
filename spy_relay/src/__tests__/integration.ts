@@ -444,7 +444,7 @@ describe("Ethereum to Solana", () => {
   test("Query Spy Relay via REST", (done) => {
     (async () => {
       var storeKey: string =
-        CHAIN_ID_SOLANA.toString() +
+        CHAIN_ID_ETH.toString() +
         "/" +
         emitterAddress +
         "/" +
