@@ -180,7 +180,7 @@ async function processVaa(vaaBytes, processPyth: boolean) {
           storeKey.sequence,
           helpers.storePayloadToJson(storePayload)
         );
-        storeInRedis(
+        await storeInRedis(
           myRedisClient,
           helpers.storeKeyToJson(storeKey),
           helpers.storePayloadToJson(storePayload)
