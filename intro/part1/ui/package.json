@@ -5,7 +5,10 @@
   "dependencies": {
     "@certusone/wormhole-sdk": "^0.1.4",
     "@craco/craco": "^6.4.3",
+    "@emotion/react": "^11.7.1",
+    "@emotion/styled": "^11.6.0",
     "@metamask/detect-provider": "^1.2.0",
+    "@mui/material": "^5.2.4",
     "@testing-library/jest-dom": "^5.16.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^12.8.3",

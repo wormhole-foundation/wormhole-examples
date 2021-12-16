@@ -1,20 +1,25 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
-import { EthereumProviderProvider } from './EthereumProviderContext';
+import { ThemeProvider } from "@emotion/react";
+import { createTheme, CssBaseline, responsiveFontSizes } from "@mui/material";
+import React from "react";
+import ReactDOM from "react-dom";
+import App from "./App";
+import { EthereumProviderProvider } from "./EthereumProviderContext";
+
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
+const theme = responsiveFontSizes(darkTheme);
 
 ReactDOM.render(
   <React.StrictMode>
-    <EthereumProviderProvider>
-      <App />
-    </EthereumProviderProvider>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <EthereumProviderProvider>
+        <App />
+      </EthereumProviderProvider>
+    </ThemeProvider>
   </React.StrictMode>,
-  document.getElementById('root')
+  document.getElementById("root")
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-reportWebVitals();
