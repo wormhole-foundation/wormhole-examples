@@ -38,6 +38,13 @@ To run the docker image in TestNet:
 docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/testnet/2/1 --bootstrap /dns4/wormhole-testnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWBY9ty9CXLBXGQzMuqkziLntsVcyz4pk1zWaJRvJn6Mmt' -p 7073:7073 guardian
 ```
 
+To run the docker image on MainNet:
+
+```
+docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' -p 7073:7073 guardian
+
+```
+
 To run spy_relay:
 
 ```
