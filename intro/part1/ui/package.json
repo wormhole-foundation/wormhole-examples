@@ -1,6 +1,6 @@
 {
-  "name": "whpost",
-  "version": "0.1.0",
+  "name": "messenger-ui",
+  "version": "0.0.1",
   "private": true,
   "dependencies": {
     "@certusone/wormhole-sdk": "^0.1.4",
