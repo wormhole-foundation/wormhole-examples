@@ -14,7 +14,7 @@ sudo chmod +x /usr/local/bin/docker-compose
 ## Build
 
 ```bash
-docker-compose build
+docker-compose build --no-cache
 ```
 
 ## Start

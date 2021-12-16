@@ -11,3 +11,12 @@ cd ethereum
 npm ci
 npm run migrate
 ```
+
+Run the UI
+
+```bash
+cd ui
+npm ci
+npm run typechain
+npm start
+```

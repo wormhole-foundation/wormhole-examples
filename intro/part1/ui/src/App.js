@@ -1,23 +1,21 @@
-import React from "react";
-import ReactDOM from "react-dom";
-import "./index.css";
-import "./App.css";
-import { useCallback, useEffect, useState } from "react";
-import { useEthereumProvider } from "./EthereumProviderContext";
-import { hexlify, hexStripZeros, hexZeroPad } from "@ethersproject/bytes";
-import { Messenger__factory } from "./ethers-contracts";
 import {
   createNonce,
   getEmitterAddressEth,
   parseSequenceFromLogEth,
 } from "@certusone/wormhole-sdk";
 import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSignedVAAWithRetry";
+import { hexlify, hexStripZeros } from "@ethersproject/bytes";
+import React, { useCallback, useState } from "react";
+import "./App.css";
+import ETH_CONTRACT_ADDRESS from "./contract-addresses/development";
+import BSC_CONTRACT_ADDRESS from "./contract-addresses/development2";
+import { useEthereumProvider } from "./EthereumProviderContext";
+import { Messenger__factory } from "./ethers-contracts";
+import "./index.css";
 
 const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
-const BSC_CONTRACT_ADDRESS = "0x4bf3A7dFB3b76b5B3E169ACE65f888A4b4FCa5Ee";
-const BSC_RPC = "http://localhost:8546";
-const ETH_CONTRACT_ADDRESS = "0xe97DbD7116D168190F8A6E7beB1092c103c53a12";
 const ETH_RPC = "http://localhost:8545";
+const BSC_RPC = "http://localhost:8546";
 
 const chainToNetwork = (c) =>
   hexStripZeros(hexlify(c === 2 ? 1337 : c === 4 ? 1397 : 0));
@@ -195,7 +193,7 @@ function App() {
           style={{ listStyleType: "none", margin: 0, padding: 0, width: "90%" }}
         >
           <EthChain
-            c="Etherium"
+            c="Ethereum"
             sendCB={lastSentCbEther}
             fetchCb={lastFetchCbEther}
           ></EthChain>
