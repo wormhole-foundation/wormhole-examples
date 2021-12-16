@@ -1,14 +1,14 @@
 {
-  "name": "spy_relay",
+  "name": "pyth_relay",
   "version": "1.0.0",
-  "description": "Spy listener and relayer",
-  "main": "spy_relay.js",
+  "description": "Pyth relayer",
+  "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "spy_relay": "node lib/spy_relay.js",
-    "listen_only": "node lib/spy_relay.js --listen_only",
-    "worker_only": "node lib/spy_relay.js --worker_only",
-    "rest_only": "node lib/spy_relay.js --rest_only",
+    "start": "node lib/index.js",
+    "listen_only": "node lib/index.js --listen_only",
+    "worker_only": "node lib/index.js --worker_only",
+    "rest_only": "node lib/index.js --rest_only",
     "test": "jest --config jestconfig.json --verbose"
   },
   "author": "",

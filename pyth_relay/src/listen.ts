@@ -23,7 +23,7 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
 
-export async function spy_listen() {
+export async function listen() {
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
     console.error("Missing environment variable SPY_SERVICE_HOST");
@@ -34,12 +34,6 @@ export async function spy_listen() {
     "spy_relay starting up, will listen for signed VAAs from [%s]",
     process.env.SPY_SERVICE_HOST
   );
-
-  var processPyth: boolean =
-    process.env.SPY_PROCESS_PYTH && process.env.SPY_PROCESS_PYTH === "1";
-  if (processPyth) {
-    console.log("spy_relay will process pyth messages");
-  }
 
   // Connect to redis globally
   // var myRedisClient;
@@ -85,7 +79,7 @@ export async function spy_listen() {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes, processPyth);
+      processVaa(vaaBytes);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
@@ -107,7 +101,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes, processPyth: boolean) {
+async function processVaa(vaaBytes) {
   // console.log("processVaa");
   console.log(vaaBytes);
   const { parse_vaa } = await importCoreWasm();
@@ -115,88 +109,54 @@ async function processVaa(vaaBytes, processPyth: boolean) {
   console.log(parsedVAA);
 
   // Connect to redis
-  const myRedisClient = await connectToRedis();
-  if (myRedisClient) {
-    console.log("Got a valid client from connect");
-  } else {
-    console.error("Invalid client from connect");
-    return;
-  }
-  if (parsedVAA.payload[0] === 1) {
-    var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    // console.log("storeKey: ", helpers.storeKeyToJson(storeKey));
-    // console.log("storePayload: ", helpers.storePayloadToJson(storePayload));
-    console.log(
-      "storing: key: [%d/%s/%d], payload: [%s]",
-      storeKey.chain_id,
-      storeKey.emitter_address,
-      storeKey.sequence,
-      helpers.storePayloadToJson(storePayload)
-    );
-    await storeInRedis(
-      myRedisClient,
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
-    console.log("Finished storing in redis.");
+  // const myRedisClient = await connectToRedis();
+  // if (myRedisClient) {
+  //   console.log("Got a valid client from connect");
+  // } else {
+  //   console.error("Invalid client from connect");
+  //   return;
+  // }
 
-    var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
+  if (isPyth(parsedVAA.payload)) {
+    var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
+    // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
     console.log(
-      "transfer: emitter: [%d:%s], seqNum: %d, payload: origin: [%d:%s], target: [%d:%s],  amount: %d",
+      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%x, version: %d, payloadId: %d, priceType: %d, price: %d, exponent: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
-      transferPayload.originChain,
-      transferPayload.originAddress,
-      transferPayload.targetChain,
-      transferPayload.targetAddress,
-      transferPayload.amount
+      pa.magic,
+      pa.version,
+      pa.payloadId,
+      pa.priceType,
+      pa.price,
+      pa.exponent,
+      uint8ArrayToHex(parsedVAA.payload)
     );
 
+    // var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+    // var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
     // console.log(
-    //   "relaying vaa from chain id %d to chain id %d",
-    //   parsedVAA.emitter_chain,
-    //   transferPayload.targetChain
+    //   "storing pyth: key: [%d/%s/%d], payload: [%s]",
+    //   storeKey.chain_id,
+    //   storeKey.emitter_address,
+    //   storeKey.sequence,
+    //   helpers.storePayloadToJson(storePayload)
     // );
-    // try {
-    //   // result is an object that could be jsonified and stored as the status in the completed store. The REST query could return that.
-    //   var result = await relay(storePayload.vaa_bytes);
-    //   console.log("relay returned", result);
-    // } catch (e) {
-    //   console.error("failed to relay transfer vaa:", e);
-    // }
+    // await storeInRedis(
+    //   myRedisClient,
+    //   helpers.storeKeyToJson(storeKey),
+    //   helpers.storePayloadToJson(storePayload)
+    // );
   } else {
-    var pyth = isPyth(parsedVAA.payload);
-    if (pyth) {
-      if (processPyth) {
-        // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
-        var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-        var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-        console.log(
-          "storing pyth: key: [%d/%s/%d], payload: [%s]",
-          storeKey.chain_id,
-          storeKey.emitter_address,
-          storeKey.sequence,
-          helpers.storePayloadToJson(storePayload)
-        );
-        await storeInRedis(
-          myRedisClient,
-          helpers.storeKeyToJson(storeKey),
-          helpers.storePayloadToJson(storePayload)
-        );
-      } else {
-        console.log("dropping pyth", parsedVAA);
-      }
-    } else {
-      console.log(
-        "dropping vaa, payload type %d",
-        parsedVAA.payload[0],
-        parsedVAA
-      );
-    }
+    console.log(
+      "dropping vaa, payload type %d",
+      parsedVAA.payload[0],
+      parsedVAA
+    );
   }
-  await myRedisClient.quit();
+
+  // await myRedisClient.quit();
 }
 
 function isPyth(payload): boolean {

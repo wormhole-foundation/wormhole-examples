@@ -3,7 +3,7 @@ import axios from "axios";
 import { ChainId } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
 
-export async function spy_rest(restPort: number) {
+export async function rest(restPort: number) {
   const RELAYER_URL = "http://localhost:3001/relay";
 
   const express = require("express");

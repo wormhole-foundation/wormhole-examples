@@ -26,11 +26,11 @@ import { createClient } from "redis";
 import * as helpers from "./helpers";
 import { relay } from "./relay/main";
 
-export async function spy_worker() {
+export async function worker() {
   require("dotenv").config();
   var numWorkers = 1;
-  if (process.env.SPY_NUM_WORKERS) {
-    numWorkers = parseInt(process.env.SPY_NUM_WORKERS);
+  if (process.env.NUM_WORKERS) {
+    numWorkers = parseInt(process.env.NUM_WORKERS);
     console.log("will use %d workers", numWorkers);
   }
 

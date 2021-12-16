@@ -1,8 +1,8 @@
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
-import { spy_listen } from "./spy_listen";
-import { spy_worker } from "./spy_worker";
-import { spy_rest } from "./spy_rest";
+import { listen } from "./listen";
+import { worker } from "./worker";
+import { rest } from "./rest";
 import * as helpers from "./helpers";
 import { RelayerEnvironment, validateEnvironment } from "./configureEnv";
 
@@ -57,24 +57,24 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
 
 // Start the spy listener to listen to the guardians.
 if (runListen) {
-  spy_listen();
+  listen();
 }
 
 // Start the spy worker to process VAAs from the store.
 if (runWorker) {
-  spy_worker();
+  worker();
 }
 
 // Start the REST server, if configured.
-if (runRest && process.env.SPY_REST_PORT) {
-  var restPort = parseInt(process.env.SPY_REST_PORT);
+if (runRest && process.env.REST_PORT) {
+  var restPort = parseInt(process.env.REST_PORT);
   if (!restPort) {
     console.error(
-      "Environment variable SPY_REST_PORT is set to [%s], which is not a valid port number.",
-      process.env.SPY_REST_PORT
+      "Environment variable REST_PORT is set to [%s], which is not a valid port number.",
+      process.env.REST_PORT
     );
     process.exit(1);
   }
 
-  spy_rest(restPort);
+  rest(restPort);
 }
