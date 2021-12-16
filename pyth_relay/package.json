@@ -1,0 +1,43 @@
+{
+  "name": "spy_relay",
+  "version": "1.0.0",
+  "description": "Spy listener and relayer",
+  "main": "spy_relay.js",
+  "scripts": {
+    "build": "tsc",
+    "spy_relay": "node lib/spy_relay.js",
+    "listen_only": "node lib/spy_relay.js --listen_only",
+    "worker_only": "node lib/spy_relay.js --worker_only",
+    "rest_only": "node lib/spy_relay.js --rest_only",
+    "test": "jest --config jestconfig.json --verbose"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@improbable-eng/grpc-web-node-http-transport": "^0.15.0",
+    "@types/jest": "^27.0.2",
+    "@types/long": "^4.0.1",
+    "@types/node": "^16.6.1",
+    "axios": "^0.24.0",
+    "esm": "^3.2.25",
+    "ethers": "^5.4.4",
+    "jest": "^27.3.1",
+    "prettier": "^2.3.2",
+    "ts-jest": "^27.0.7",
+    "tslint": "^6.1.3",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^4.3.5"
+  },
+  "dependencies": {
+    "@certusone/wormhole-sdk": "^0.1.4",
+    "@certusone/wormhole-spydk": "^0.0.1",
+    "@solana/spl-token": "^0.1.8",
+    "@solana/web3.js": "^1.24.0",
+    "@terra-money/terra.js": "^2.0.14",
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "redis": "^4.0.0"
+  }
+}
