@@ -7,15 +7,13 @@ import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSigned
 import { hexlify, hexStripZeros } from "@ethersproject/bytes";
 import React, { useCallback, useState } from "react";
 import "./App.css";
-import ETH_CONTRACT_ADDRESS from "./contract-addresses/development";
-import BSC_CONTRACT_ADDRESS from "./contract-addresses/development2";
+import { address as ETH_CONTRACT_ADDRESS } from "./contract-addresses/development";
+import { address as BSC_CONTRACT_ADDRESS } from "./contract-addresses/development2";
 import { useEthereumProvider } from "./EthereumProviderContext";
 import { Messenger__factory } from "./ethers-contracts";
 import "./index.css";
 
 const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
-const ETH_RPC = "http://localhost:8545";
-const BSC_RPC = "http://localhost:8546";
 
 const chainToNetwork = (c) =>
   hexStripZeros(hexlify(c === 2 ? 1337 : c === 4 ? 1397 : 0));

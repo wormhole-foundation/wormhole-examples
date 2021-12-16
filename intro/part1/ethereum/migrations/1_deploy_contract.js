@@ -7,6 +7,6 @@ module.exports = async function(deployer, network) {
   await fsp.mkdir(addressDir, { recursive: true });
   await fsp.writeFile(
     `${addressDir}/${network}.js`,
-    `export default "${Messenger.address}"`
+    `export const address = "${Messenger.address}"`
   );
 };
