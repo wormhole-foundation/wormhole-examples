@@ -106,43 +106,44 @@ async function processVaa(vaaBytes) {
   // console.log(vaaBytes);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
-  console.log(parsedVAA);
+  // console.log(parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
     console.log(
-      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, priceType: %d, price: %d, exponent: %d, payload: [%s]",
+      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceType: %d, price: %d, exponent: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
       pa.magic.toString(16),
       pa.version,
       pa.payloadId,
+      pa.productId,
       pa.priceType,
       pa.price,
       pa.exponent,
       uint8ArrayToHex(parsedVAA.payload)
     );
 
-    // Connect to redis
-    const myRedisClient = await connectToRedis();
-    if (myRedisClient) {
-      console.log("Got a valid client from connect");
-    } else {
-      console.error("Invalid client from connect");
-      return;
-    }
+    // // Connect to redis
+    // const myRedisClient = await connectToRedis();
+    // if (myRedisClient) {
+    //   console.log("Got a valid client from connect");
+    // } else {
+    //   console.error("Invalid client from connect");
+    //   return;
+    // }
 
-    var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+    // var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+    // var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
 
-    await storeInRedis(
-      myRedisClient,
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
+    // await storeInRedis(
+    //   myRedisClient,
+    //   helpers.storeKeyToJson(storeKey),
+    //   helpers.storePayloadToJson(storePayload)
+    // );
 
-    await myRedisClient.quit();
+    // await myRedisClient.quit();
   } else {
     console.log(
       "dropping vaa, payload type %d",
