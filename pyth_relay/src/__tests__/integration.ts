@@ -57,7 +57,7 @@ import {
   TERRA_GAS_PRICES_URL,
   TERRA_NODE_URL,
   TERRA_PRIVATE_KEY,
-  TERRA_TOKEN_BRIDGE_ADDRESS,
+  TERRA_PYTH_CONTRACT_ADDRESS,
   TEST_ERC20,
   TEST_SOLANA_TOKEN,
   WORMHOLE_RPC_HOSTS,
@@ -588,7 +588,7 @@ describe("Ethereum to Terra", () => {
         });
         const wallet = lcd.wallet(mk);
         const msg = await createWrappedOnTerra(
-          TERRA_TOKEN_BRIDGE_ADDRESS,
+          TERRA_PYTH_CONTRACT_ADDRESS,
           wallet.key.accAddress,
           signedVAA
         );
@@ -665,7 +665,7 @@ describe("Ethereum to Terra", () => {
         transferSignedVAA = signedVAA;
         // expect(
         //   await getIsTransferCompletedTerra(
-        //     TERRA_TOKEN_BRIDGE_ADDRESS,
+        //     TERRA_PYTH_CONTRACT_ADDRESS,
         //     signedVAA,
         //     wallet.key.accAddress,
         //     lcd,
@@ -673,7 +673,7 @@ describe("Ethereum to Terra", () => {
         //   )
         // ).toBe(false);
         // const msg = await redeemOnTerra(
-        //   TERRA_TOKEN_BRIDGE_ADDRESS,
+        //   TERRA_PYTH_CONTRACT_ADDRESS,
         //   wallet.key.accAddress,
         //   signedVAA
         // );
@@ -699,7 +699,7 @@ describe("Ethereum to Terra", () => {
         // await lcd.tx.broadcast(tx);
         // expect(
         //   await getIsTransferCompletedTerra(
-        //     TERRA_TOKEN_BRIDGE_ADDRESS,
+        //     TERRA_PYTH_CONTRACT_ADDRESS,
         //     signedVAA,
         //     wallet.key.accAddress,
         //     lcd,
@@ -735,7 +735,7 @@ describe("Ethereum to Terra", () => {
           );
           await sleep(5000);
           success = await await getIsTransferCompletedTerra(
-            TERRA_TOKEN_BRIDGE_ADDRESS,
+            TERRA_PYTH_CONTRACT_ADDRESS,
             transferSignedVAA,
             wallet.key.accAddress,
             lcd,

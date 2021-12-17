@@ -103,29 +103,19 @@ async function encodeEmitterAddress(
 
 async function processVaa(vaaBytes) {
   // console.log("processVaa");
-  console.log(vaaBytes);
+  // console.log(vaaBytes);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   console.log(parsedVAA);
 
-  // Connect to redis
-  // const myRedisClient = await connectToRedis();
-  // if (myRedisClient) {
-  //   console.log("Got a valid client from connect");
-  // } else {
-  //   console.error("Invalid client from connect");
-  //   return;
-  // }
-
   if (isPyth(parsedVAA.payload)) {
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
-    // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
     console.log(
-      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%x, version: %d, payloadId: %d, priceType: %d, price: %d, exponent: %d, payload: [%s]",
+      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, priceType: %d, price: %d, exponent: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
-      pa.magic,
+      pa.magic.toString(16),
       pa.version,
       pa.payloadId,
       pa.priceType,
@@ -134,20 +124,25 @@ async function processVaa(vaaBytes) {
       uint8ArrayToHex(parsedVAA.payload)
     );
 
-    // var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-    // var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    // console.log(
-    //   "storing pyth: key: [%d/%s/%d], payload: [%s]",
-    //   storeKey.chain_id,
-    //   storeKey.emitter_address,
-    //   storeKey.sequence,
-    //   helpers.storePayloadToJson(storePayload)
-    // );
-    // await storeInRedis(
-    //   myRedisClient,
-    //   helpers.storeKeyToJson(storeKey),
-    //   helpers.storePayloadToJson(storePayload)
-    // );
+    // Connect to redis
+    const myRedisClient = await connectToRedis();
+    if (myRedisClient) {
+      console.log("Got a valid client from connect");
+    } else {
+      console.error("Invalid client from connect");
+      return;
+    }
+
+    var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+
+    await storeInRedis(
+      myRedisClient,
+      helpers.storeKeyToJson(storeKey),
+      helpers.storePayloadToJson(storePayload)
+    );
+
+    await myRedisClient.quit();
   } else {
     console.log(
       "dropping vaa, payload type %d",
@@ -155,8 +150,6 @@ async function processVaa(vaaBytes) {
       parsedVAA
     );
   }
-
-  // await myRedisClient.quit();
 }
 
 function isPyth(payload): boolean {

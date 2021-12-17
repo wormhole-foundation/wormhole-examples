@@ -26,7 +26,7 @@ export const TERRA_CHAIN_ID = "localterra";
 export const TERRA_GAS_PRICES_URL = "http://localhost:3060/v1/txs/gas_prices";
 export const TERRA_CORE_BRIDGE_ADDRESS =
   "terra18vd8fpwxzck93qlwghaj6arh4p7c5n896xzem5";
-export const TERRA_TOKEN_BRIDGE_ADDRESS =
+export const TERRA_PYTH_CONTRACT_ADDRESS =
   "terra10pyejy66429refv3g35g2t7am0was7ya7kz2a4";
 export const TERRA_PRIVATE_KEY =
   "notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius";

@@ -106,8 +106,8 @@ function configTerra(): ChainConfigInfo {
     console.error("Missing environment variable TERRA_PRIVATE_KEY");
     process.exit(1);
   }
-  if (!process.env.TERRA_TOKEN_BRIDGE_ADDRESS) {
-    console.error("Missing environment variable TERRA_TOKEN_BRIDGE_ADDRESS");
+  if (!process.env.TERRA_PYTH_CONTRACT_ADDRESS) {
+    console.error("Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
   }
 
@@ -115,6 +115,6 @@ function configTerra(): ChainConfigInfo {
     chainId: 3,
     nodeUrl: process.env.TERRA_NODE_URL,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
-    tokenBridgeAddress: process.env.TERRA_TOKEN_BRIDGE_ADDRESS,
+    tokenBridgeAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
   };
 }

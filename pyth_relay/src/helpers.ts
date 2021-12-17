@@ -73,37 +73,41 @@ export function sleep(ms) {
 ////////////////////////////////// Start of PYTH Stuff //////////////////////////////////////
 
 /*
-    struct Ema {
-        int64 value;
-        int64 numerator;
-        int64 denominator;
-    }
 
-    struct PriceAttestation {
-        uint32 magic; // constant "P2WH"
-        uint16 version;
+  // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
+  // The Pyth smart contract stuff is in terra/contracts/pyth-bridge
 
-        // PayloadID uint8 = 1
-        uint8 payloadId;
+  struct Ema {
+      int64 value;
+      int64 numerator;
+      int64 denominator;
+  }
 
-        bytes32 productId;
-        bytes32 priceId;
+  struct PriceAttestation {
+      uint32 magic; // constant "P2WH"
+      uint16 version;
 
-        uint8 priceType;
+      // PayloadID uint8 = 1
+      uint8 payloadId;
 
-        int64 price;
-        int32 exponent;
+      bytes32 productId;
+      bytes32 priceId;
 
-        Ema twap;
-        Ema twac;
+      uint8 priceType;
 
-        uint64 confidenceInterval;
+      int64 price;
+      int32 exponent;
 
-        uint8 status;
-        uint8 corpAct;
+      Ema twap;
+      Ema twac;
 
-        uint64 timestamp;
-    }
+      uint64 confidenceInterval;
+
+      uint8 status;
+      uint8 corpAct;
+
+      uint64 timestamp;
+  }
 
 0   uint32    magic // constant "P2WH"
 4   u16       version

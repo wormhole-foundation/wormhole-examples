@@ -78,6 +78,9 @@ export async function worker() {
                 si_key,
                 helpers.workingPayloadToJson(newPayload)
               );
+
+              // I think our redis key needs to change to be productId and priceType.
+
               // Process the request
               await processRequest(redisClient, si_key);
             }

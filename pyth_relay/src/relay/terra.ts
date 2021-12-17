@@ -33,6 +33,7 @@ export async function relayTerra(
   //   signedVAA
   // );
 
+  // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
   const msg = await redeemOnTerra(
     chainConfigInfo.tokenBridgeAddress,
     wallet.key.accAddress,
@@ -60,14 +61,6 @@ export async function relayTerra(
 
   const receipt = await lcd.tx.broadcast(tx);
 
-  var success = await await getIsTransferCompletedTerra(
-    chainConfigInfo.tokenBridgeAddress,
-    signedVaaArray,
-    wallet.key.accAddress,
-    lcd,
-    gassPriceUrl
-  );
-
-  console.log("redeemed on terra: success:", success, ", receipt:", receipt);
-  return { redeemed: success, result: receipt };
+  console.log("submit to terra: receipt:", receipt);
+  return { redeemed: true, result: receipt };
 }
