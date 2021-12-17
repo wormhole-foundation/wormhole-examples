@@ -19,11 +19,10 @@ export async function rest(restPort: number) {
     const rclient = createClient();
     await rclient.connect();
 
-    app.get("/query/:chain_id/:emitter_address/:sequence", async (req, res) => {
+    app.get("/query/:product_id/:price_id", async (req, res) => {
       var key: helpers.StoreKey = {
-        chain_id: parseInt(req.params.chain_id),
-        emitter_address: req.params.emitter_address,
-        sequence: parseInt(req.params.sequence),
+        product_id: req.product_id,
+        price_id: req.params.price_id,
       };
 
       await rclient.select(helpers.INCOMING);
@@ -47,8 +46,6 @@ export async function rest(restPort: number) {
       res.json(result);
     });
 
-    app.get("/", (req, res) =>
-      res.json("/query/<chain_id>/<emitter_address>/<sequence>")
-    );
+    app.get("/", (req, res) => res.json("/query/<product_id>/<price_id>"));
   })();
 }

@@ -4,9 +4,8 @@ export const INCOMING = 0;
 export const WORKING = 1;
 
 export type StoreKey = {
-  chain_id: number;
-  emitter_address: string;
-  sequence: number;
+  product_id: string;
+  price_id: string;
 };
 
 export type StorePayload = {
@@ -36,11 +35,12 @@ export function workingPayloadFromJson(json: string): StoreWorkingPayload {
   return JSON.parse(json);
 }
 
-export function storeKeyFromParsedVAA(parsedVAA: any): StoreKey {
+export function storeKeyFromPriceAttestation(
+  pa: PythPriceAttestation
+): StoreKey {
   return {
-    chain_id: parsedVAA.emitter_chain as number,
-    emitter_address: uint8ArrayToHex(parsedVAA.emitter_address),
-    sequence: parsedVAA.sequence,
+    product_id: pa.productId,
+    price_id: pa.priceId,
   };
 }
 
@@ -73,7 +73,6 @@ export function sleep(ms) {
 ////////////////////////////////// Start of PYTH Stuff //////////////////////////////////////
 
 /*
-
   // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
   // The Pyth smart contract stuff is in terra/contracts/pyth-bridge
 
@@ -124,26 +123,9 @@ export function sleep(ms) {
 141 u8        corpAct
 142 u64       timestamp
 
-pyth: emitter: [1:71f8dcb863d176e2c420ad6610cf687359612b6fb392e0642b0ca6b1f186aa3b], seqNum: 173, magic: 0x50325748, version: 1, payloadId: 1,
-productId: [4a94ad0ef888c809f25a3948c5a7818a37d7ec27040939212d19558d79d097e6],
-priceId: [22f5a080bafdc57c3c6b05f274c90449b2f1d816881c47faa539c239fb632f4d],
-priceType: 1, price: 0n, exponent: -5, confidenceInterval: 0n, payload: [
-50325748
-0001
-01
-4a94ad0ef888c809f25a3948c5a7818a
-37d7ec27040939212d19558d79d097e6
-
-22f5a080bafdc57c3c6b05f274c90449
-b2f1d816881c47faa539c239fb632f4d
-01
-0000000000000000
-fffffffb
-00000000000000000000000000000000
-00000000000000000000000000000000
-00000000000000000000000000000000
-000000000000000000000000000061bcc157]
 */
+
+export const PYTH_PRICE_ATTESTATION_LENGTH: number = 150;
 
 export type PythEma = {
   value: BigInt;
@@ -196,37 +178,3 @@ export function parsePythPriceAttestation(arr: Buffer): PythPriceAttestation {
     timestamp: arr.readBigUInt64BE(142),
   };
 }
-
-/*
-
-magic: 50325748
-000101230abfe0ec3b460bd55fc4fb36356716329915145497202b8eb8bf1af6a0a3b9fe650f0367d4a7ef9815a593ea15d36593f0643aaaf0149bb04be67ab851decd010000002a93fda4e0fffffff70000002b1944e050000000015226905f00000000b6ad8d9d0000000003daf6e6000000007628c19c00000000b6ad8d9d00000000048f4c2001000000000061bb7431]
-0001
-01
-4a94ad0ef888c809f25a3948c5a7818a 37d7ec27040939212d19558d79d097e6
-22f5a080bafdc57c3c6b05f274c90449 b2f1d816881c47faa539c239fb632f4d
-01
-0000000000000000
-fffffffb
-000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000061bcbb70
-
-pyth: emitter: [1:71f8dcb863d176e2c420ad6610cf687359612b6fb392e0642b0ca6b1f186aa3b], seqNum: 119, magic: 0x50325748, version: 1, payloadId: 1, productId: [fb632f4d010000000000000000fffffffb000000000000000000000000000000],
-priceType: 1, price: 0n, exponent: -5, confidenceInterval: 0n, payload: [
-  
-50325748
-0001
-01
-4a94ad0ef888c809f25a3948c5a7818a
-37d7ec27040939212d19558d79d097e6
-22f5a080bafdc57c3c6b05f274c90449
-b2f1d816881c47faa539c239fb632f4d
-01
-0000000000000000
-fffffffb
-b2f1d816881c47faa539c239fb632f4d
-00000000000000000000000000000000
-00000000000000000000000000000000
-
-00000000000000000000000000000000
-000000000000000000000000000061bcbd69]
-*/

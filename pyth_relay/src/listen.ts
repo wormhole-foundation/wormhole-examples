@@ -24,6 +24,8 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
 
+var seqMap = new Map<string, number>();
+
 export async function listen() {
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
@@ -102,17 +104,52 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes) {
-  // console.log("processVaa");
-  // console.log(vaaBytes);
+async function processVaa(vaaBytes: string) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
+  // console.log(
+  //   "processVaa, vaa len: ",
+  //   vaaBytes.length,
+  //   ", payload len: ",
+  //   parsedVAA.payload.length
+  // );
   // console.log(parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
+    if (parsedVAA.payload.length !== helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
+      console.error(
+        "dropping vaa because the payload length is wrong: length:",
+        parsedVAA.payload.length,
+        ", expected length:",
+        helpers.PYTH_PRICE_ATTESTATION_LENGTH,
+        parsedVAA
+      );
+      return;
+    }
+
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
+
+    var storeKey = helpers.storeKeyFromPriceAttestation(pa);
+    var storeKeyStr: string = helpers.storeKeyToJson(storeKey);
+    var lastSeqNum = seqMap.get(storeKeyStr);
+    if (lastSeqNum) {
+      if (lastSeqNum >= parsedVAA.sequence) {
+        // console.log(
+        //   "ignoring duplicate: emitter: [%d:%s], productId: [%s], priceId: [%s], seqNum: %d",
+        //   parsedVAA.emitter_chain,
+        //   uint8ArrayToHex(parsedVAA.emitter_address),
+        //   pa.productId,
+        //   pa.priceId,
+        //   parsedVAA.sequence
+        // );
+        return;
+      }
+    }
+
+    seqMap.set(storeKeyStr, parsedVAA.sequence);
+
     console.log(
-      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, payload: [%s]",
+      "processing: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
@@ -128,7 +165,6 @@ async function processVaa(vaaBytes) {
       uint8ArrayToHex(parsedVAA.payload)
     );
 
-    // // Connect to redis
     // const myRedisClient = await connectToRedis();
     // if (myRedisClient) {
     //   console.log("Got a valid client from connect");
@@ -137,9 +173,7 @@ async function processVaa(vaaBytes) {
     //   return;
     // }
 
-    // var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
     // var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-
     // await storeInRedis(
     //   myRedisClient,
     //   helpers.storeKeyToJson(storeKey),
@@ -147,12 +181,12 @@ async function processVaa(vaaBytes) {
     // );
 
     // await myRedisClient.quit();
-  } else {
-    console.log(
-      "dropping vaa, payload type %d",
-      parsedVAA.payload[0],
-      parsedVAA
-    );
+    // } else {
+    //   console.log(
+    //     "dropping vaa, payload type %d",
+    //     parsedVAA.payload[0],
+    //     parsedVAA
+    //   );
   }
 }
 
