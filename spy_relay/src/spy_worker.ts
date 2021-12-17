@@ -70,16 +70,21 @@ export async function spy_worker() {
                 return;
               }
               await redisClient.select(helpers.WORKING);
-              var oldPayload = helpers.storePayloadFromJson(si_value);
-              var newPayload: helpers.StoreWorkingPayload;
-              newPayload = helpers.initWorkingPayload();
-              newPayload.vaa_bytes = oldPayload.vaa_bytes;
-              await redisClient.set(
-                si_key,
-                helpers.workingPayloadToJson(newPayload)
-              );
-              // Process the request
-              await processRequest(redisClient, si_key);
+              // If this VAA is already in the working store, then no need to add it again.
+              // This handles the case of duplicate VAAs from multiple guardians
+              const checkVal = await redisClient.get(si_key);
+              if (!checkVal) {
+                var oldPayload = helpers.storePayloadFromJson(si_value);
+                var newPayload: helpers.StoreWorkingPayload;
+                newPayload = helpers.initWorkingPayload();
+                newPayload.vaa_bytes = oldPayload.vaa_bytes;
+                await redisClient.set(
+                  si_key,
+                  helpers.workingPayloadToJson(newPayload)
+                );
+                // Process the request
+                await processRequest(redisClient, si_key);
+              }
             }
           } else {
             console.error("No si_keyval returned!");
