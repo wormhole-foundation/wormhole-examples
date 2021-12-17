@@ -6,6 +6,7 @@ import {
   ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
+  hexToNativeString,
   hexToUint8Array,
   uint8ArrayToHex,
   parseTransferPayload,
@@ -111,17 +112,19 @@ async function processVaa(vaaBytes) {
   if (isPyth(parsedVAA.payload)) {
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
     console.log(
-      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceType: %d, price: %d, exponent: %d, payload: [%s]",
+      "pyth: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
       pa.magic.toString(16),
       pa.version,
-      pa.payloadId,
-      pa.productId,
+      hexToNativeString(pa.productId, CHAIN_ID_SOLANA),
+      hexToNativeString(pa.priceId, CHAIN_ID_SOLANA),
+      pa.priceId,
       pa.priceType,
       pa.price,
       pa.exponent,
+      pa.confidenceInterval,
       uint8ArrayToHex(parsedVAA.payload)
     );
 
