@@ -35,12 +35,6 @@ export async function spy_listen() {
     process.env.SPY_SERVICE_HOST
   );
 
-  var processPyth: boolean =
-    process.env.SPY_PROCESS_PYTH && process.env.SPY_PROCESS_PYTH === "1";
-  if (processPyth) {
-    console.log("spy_relay will process pyth messages");
-  }
-
   // Connect to redis globally
   // var myRedisClient;
   // async () => {
@@ -85,7 +79,7 @@ export async function spy_listen() {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes, processPyth);
+      processVaa(vaaBytes);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
@@ -107,7 +101,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes, processPyth: boolean) {
+async function processVaa(vaaBytes) {
   // console.log("processVaa");
   console.log(vaaBytes);
   const { parse_vaa } = await importCoreWasm();
@@ -167,51 +161,13 @@ async function processVaa(vaaBytes, processPyth: boolean) {
     //   console.error("failed to relay transfer vaa:", e);
     // }
   } else {
-    var pyth = isPyth(parsedVAA.payload);
-    if (pyth) {
-      if (processPyth) {
-        // Pyth PriceAttestation messages are defined in wormhole/ethereum/contracts/pyth/PythStructs.sol
-        var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-        var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-        console.log(
-          "storing pyth: key: [%d/%s/%d], payload: [%s]",
-          storeKey.chain_id,
-          storeKey.emitter_address,
-          storeKey.sequence,
-          helpers.storePayloadToJson(storePayload)
-        );
-        await storeInRedis(
-          myRedisClient,
-          helpers.storeKeyToJson(storeKey),
-          helpers.storePayloadToJson(storePayload)
-        );
-      } else {
-        console.log("dropping pyth", parsedVAA);
-      }
-    } else {
-      console.log(
-        "dropping vaa, payload type %d",
-        parsedVAA.payload[0],
-        parsedVAA
-      );
-    }
+    console.log(
+      "dropping vaa, payload type %d",
+      parsedVAA.payload[0],
+      parsedVAA
+    );
   }
   await myRedisClient.quit();
-}
-
-function isPyth(payload): boolean {
-  if (payload.length < 4) return false;
-  if (
-    payload[0] === 80 &&
-    payload[1] === 50 &&
-    payload[2] === 87 &&
-    payload[3] === 72
-  ) {
-    // P2WH
-    return true;
-  }
-
-  return false;
 }
 
 async function connectToRedis() {
