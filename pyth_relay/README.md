@@ -14,7 +14,7 @@ The above will grab the docker for redis.
 In order to run that docker use a command similar to:
 
 ```
-docker run --rm -p6379:6379 --name redis-docker -d redis
+docker run --rm -p6379:6379 --name redis-docker -d --network relay_network redis
 ```
 
 To run the redis GUI do the following:
@@ -25,28 +25,35 @@ sudo snap install redis-desktop-manager
 cd /var/lib/snapd/desktop/applications; ./redis-desktop-manager_rdm.desktop
 ```
 
-To build the spy / guardian docker container:
+To build the spy_guardian docker container:
 
 ```
-cd spy_relay
-docker build -f Dockerfile -t guardian .
+cd pyth_relay
+docker build -f Dockerfile.spy_guardian -t spy_guardian .
 ```
 
-To run the docker image in TestNet:
+To build the pyth_relay docker container:
 
 ```
-docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/testnet/2/1 --bootstrap /dns4/wormhole-testnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWBY9ty9CXLBXGQzMuqkziLntsVcyz4pk1zWaJRvJn6Mmt' -p 7073:7073 guardian
+cd pyth_relay
+docker build -f Dockerfile.pyth_relay -t pyth_relay .
 ```
 
-To run the docker image on MainNet:
+To run the spy_guardian docker image in TestNet:
 
 ```
-docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' -p 7073:7073 guardian
+docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/testnet/2/1 --bootstrap /dns4/wormhole-testnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWBY9ty9CXLBXGQzMuqkziLntsVcyz4pk1zWaJRvJn6Mmt' -p 7073:7073 spy_guardian
+```
+
+To run the spy_guardian docker image on MainNet:
+
+```
+docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' -p 7073:7073 --network relay_network spy_guardian
 
 ```
 
-To run spy_relay:
+To run pyth_relay:
 
 ```
-npm run spy_relay
+docker run --network relay_network pyth_relay
 ```

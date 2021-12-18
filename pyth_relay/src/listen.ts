@@ -85,7 +85,7 @@ export async function listen() {
       processVaa(vaaBytes);
     });
 
-    console.log("spy_relay waiting for transfer signed VAAs");
+    console.log("pyth_relay listening for messages");
   })();
 }
 
@@ -107,13 +107,13 @@ async function encodeEmitterAddress(
 async function processVaa(vaaBytes: string) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
-  // console.log(
-  //   "processVaa, vaa len: ",
-  //   vaaBytes.length,
-  //   ", payload len: ",
-  //   parsedVAA.payload.length
-  // );
-  // console.log(parsedVAA);
+  console.log(
+    "processVaa, vaa len: ",
+    vaaBytes.length,
+    ", payload len: ",
+    parsedVAA.payload.length
+  );
+  console.log(parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
     if (parsedVAA.payload.length !== helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
