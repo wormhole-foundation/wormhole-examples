@@ -34,7 +34,7 @@ export async function listen() {
   }
 
   console.log(
-    "spy_relay starting up, will listen for signed VAAs from [%s]",
+    "pyth_relay starting up, will listen for signed VAAs from [%s]",
     process.env.SPY_SERVICE_HOST
   );
 
@@ -187,6 +187,8 @@ async function processVaa(vaaBytes: string) {
     //     parsedVAA.payload[0],
     //     parsedVAA
     //   );
+  } else {
+    console.log("dropping non-pyth vaa");
   }
 }
 
