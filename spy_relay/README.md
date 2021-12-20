@@ -1,7 +1,7 @@
 In order to compile spy_relay you need to do:
 
 ```
-npm install redis
+npm ci
 ```
 
 In order to run spy_relay successfully you need to do:
