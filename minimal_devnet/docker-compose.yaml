@@ -13,6 +13,11 @@ services:
       - ./wait-for-it.sh
       - -t
       - "0"
+      - eth1-deploy:2000
+      - --
+      - ./wait-for-it.sh
+      - -t
+      - "0"
       - eth2-deploy:2000
       - --
       - /guardiand
@@ -22,6 +27,8 @@ services:
       - --bscRPC
       - ws://eth2:8546
       - --polygonRPC
+      - ws://eth1:8545
+      - --avalancheRPC
       - ws://eth1:8545
       - --terraWS
       - ws://terra-terrad:26657/websocket
@@ -68,7 +75,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - "npm run migrate && npx truffle exec scripts/deploy_test_token.js && npx truffle exec scripts/register_bsc_chain.js && nc -lkp 2000 0.0.0.0"
+      - "./wait-for-it.sh -t 0 eth1:8545 -- mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && npx truffle migrate && npx truffle exec scripts/deploy_test_token.js && npx truffle exec scripts/register_bsc_chain.js && nc -lkp 2000 0.0.0.0"
     depends_on:
       - eth1
   eth1-mine:
@@ -102,7 +109,7 @@ services:
     command:
       - /bin/sh
       - -c
-      - "./wait-for-it.sh -t 0 eth1-deploy:2000 -- sed -i 's/CHAIN_ID=0x2/CHAIN_ID=0x4/g' .env && mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && npx truffle migrate --network development2 && npx truffle exec scripts/deploy_test_token.js --network development2 && npx truffle exec scripts/register_eth_chain.js --network development2 && nc -lkp 2000 0.0.0.0"
+      - "./wait-for-it.sh -t 0 eth2:8546 -- sed -i 's/CHAIN_ID=0x2/CHAIN_ID=0x4/g' .env && mkdir -p build/contracts && cp node_modules/@openzeppelin/contracts/build/contracts/* build/contracts/ && npx truffle migrate --network development2 && npx truffle exec scripts/deploy_test_token.js --network development2 && npx truffle exec scripts/register_eth_chain.js --network development2 && nc -lkp 2000 0.0.0.0"
     depends_on:
       - eth2
   eth2-mine:
