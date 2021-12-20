@@ -76,6 +76,7 @@ function Chain({
 }) {
   const { provider, signer, signerAddress } = useEthereumProvider();
   const [messageText, setMessageText] = useState("");
+  const [resultText, setResultText] = useState("");
   const handleChange = useCallback((event) => {
     setMessageText(event.target.value);
 
@@ -86,6 +87,8 @@ function Chain({
     const vaaData = getSelectedVaa();
     console.log('vaa seq: '+vaaData.vaa.sequence+' chain: '+vaaData.vaa.emitter_chain+' will be processed on:'+chainId);
     console.log('string was: '+Buffer.from(vaaData.vaa.payload).toString());
+    console.log('emmiter: '+vaaData.vaa.emitter_address);
+
     if (!signer || !provider) return;
     (async () => {
       await provider.send("wallet_switchEthereumChain", [
@@ -96,7 +99,7 @@ function Chain({
         signer
       );
       const nonce = createNonce();
-      //======
+
       try {
         const sendTx = await Messenger.receiveBytes(
           vaaData.bytes,
@@ -104,8 +107,10 @@ function Chain({
         );
         const sendReceipt = await sendTx.wait();
         console.log(sendReceipt);
-      } catch (e) {
-        console.log("receiveBytes failed ", e);
+        setResultText('Success: ' + Buffer.from(vaaData.vaa.payload).toString());
+      } catch (ex) {
+        console.log("receiveBytes failed ", ex);
+        setResultText('Exception. See console log');
       }
     })();
   }, [signer, provider, chainId, appMsgIdx, getSelectedVaa]);   //appMsgIdx, getSelectedVaa]);
@@ -156,20 +161,31 @@ function Chain({
         />
       </CardContent>
       <CardActions>
-        <Button sx={{ mr: 20 }}
+        <Button sx={{mr: 2}}
           onClick={sendClickHandler}
           variant="contained"
           disabled={!signerAddress}
         >
           Send
         </Button>
-        <Button
+        <Button 
           onClick={processClickHandler}
           variant="contained"
           disabled={appMsgIdx < 0}
         >
           Process
         </Button>
+        <br/>
+        <TextField
+          sx={{ml: 5, mr: 5, color: 'black'}}
+          inputProps={{readOnly: true}}
+          fullWidth
+          id="process-result"
+          label="last process result"
+          variant="standard"
+          value={resultText}
+        >
+        </TextField>
       </CardActions>
     </Card>
   );
