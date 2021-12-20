@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "truffle compile",
-    "migrate": "truffle migrate && truffle migrate --network development2"
+    "migrate": "truffle migrate && truffle migrate --network development2",
+    "register": "truffle exec scripts/register_bsc_chain.js && truffle exec scripts/register_eth_chain.js --network development2"
   },
   "author": "",
   "license": "Apache-2.0",
