@@ -4,13 +4,10 @@ import { listen } from "./listen";
 import { worker } from "./worker";
 import { rest } from "./rest";
 import * as helpers from "./helpers";
-import { RelayerEnvironment, validateEnvironment } from "./configureEnv";
 
 require("dotenv").config();
 
 setDefaultWasm("node");
-
-const env: RelayerEnvironment = validateEnvironment();
 
 var runListen: boolean = true;
 var runWorker: boolean = true;

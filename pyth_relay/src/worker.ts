@@ -21,10 +21,11 @@ import {
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import { createClient } from "redis";
+import { isAnyArrayBuffer } from "util/types";
 
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
-import { relay } from "./relay/main";
+import { connectRelayer, relay } from "./relay/main";
 
 export async function worker() {
   require("dotenv").config();
@@ -40,6 +41,7 @@ export async function worker() {
     console.log("starting worker %d", workerIdx);
     (async () => {
       let myWorkerIdx = workerIdx;
+      let connectionData = connectRelayer();
       const redisClient = createClient();
       redisClient.on("connect", function (err) {
         if (err) {
@@ -82,7 +84,7 @@ export async function worker() {
               // I think our redis key needs to change to be productId and priceType.
 
               // Process the request
-              await processRequest(redisClient, si_key);
+              await processRequest(redisClient, si_key, connectionData);
             }
           } else {
             console.error("No si_keyval returned!");
@@ -111,7 +113,7 @@ function evaluate(blob: string) {
   // return false;
 }
 
-async function processRequest(rClient, key: string) {
+async function processRequest(rClient, key: string, connectionData: any) {
   console.log("Processing request [%s]...", key);
   // Get the entry from the working store
   await rClient.select(helpers.WORKING);
@@ -133,8 +135,8 @@ async function processRequest(rClient, key: string) {
       "processRequest() - Calling with vaa_bytes [%s]",
       payload.vaa_bytes
     );
-    var relayResult = await relay(payload.vaa_bytes);
-    console.log("processRequest() - relay returned", relayResult);
+    var relayResult = await relay(payload.vaa_bytes, connectionData);
+    // console.log("processRequest() - relay returned", relayResult);
     payload.status = relayResult;
   } catch (e) {
     console.error("processRequest() - failed to relay transfer vaa:", e);

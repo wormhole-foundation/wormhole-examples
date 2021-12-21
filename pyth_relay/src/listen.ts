@@ -52,10 +52,11 @@ export async function listen() {
       var myFilters = [];
       for (var i = 0; i < parsedJsonFilters.length; i++) {
         var myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
-        var myEmitterAddress = await encodeEmitterAddress(
-          myChainId,
-          parsedJsonFilters[i].emitter_address
-        );
+        var myEmitterAddress = parsedJsonFilters[i].emitter_address;
+        // var myEmitterAddress = await encodeEmitterAddress(
+        //   myChainId,
+        //   parsedJsonFilters[i].emitter_address
+        // );
         var myEmitterFilter = {
           emitterFilter: {
             chainId: myChainId,
@@ -183,11 +184,11 @@ async function processVaa(vaaBytes: string) {
 
     await myRedisClient.quit();
   } else {
-    console.log(
-      "dropping non-pyth vaa, payload type %d",
-      parsedVAA.payload[0],
-      parsedVAA
-    );
+    // console.log(
+    //   "dropping non-pyth vaa, payload type %d",
+    //   parsedVAA.payload[0],
+    //   parsedVAA
+    // );
   }
 }
 
