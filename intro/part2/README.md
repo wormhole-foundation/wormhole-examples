@@ -17,6 +17,7 @@ Run the UI
 
 ```bash
 cd ui
+npm install notistack  // Only once.
 npm ci
 npm run typechain
 npm start
