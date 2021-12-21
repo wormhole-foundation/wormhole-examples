@@ -24,7 +24,7 @@ contract Messenger is Ownable {
     // receiveStr confirms VAA and processes message on the receiving chain.
     // Returns true when bytes are seen first time.
     function receiveBytes(bytes memory encodedVm, uint32 /*nonce*/) public {
-        (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole().parseAndVerifyVM(encodedVm);
+        (IWormhole.VM memory vm, bool valid, string memory reason) = _wormhole.parseAndVerifyVM(encodedVm);
         // 1. check wormhole signatures/
         require(valid, reason);
 
