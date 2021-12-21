@@ -60,6 +60,16 @@ const chainToName = (c: ChainId) =>
     ? "BSC"
     : "Unknown";
 
+  const MM_ERR_WITH_INFO_START =
+    "VM Exception while processing transaction: revert ";
+  const parseError = (e: any) =>
+    e?.data?.message?.startsWith(MM_ERR_WITH_INFO_START)
+      ? e.data.message.replace(MM_ERR_WITH_INFO_START, "")
+      : e?.response?.data?.error // terra error
+      ? e.response.data.error
+      : e?.message
+      ? e.message
+      : "An unknown error occurred";
 
 function Chain({
   name,
@@ -110,7 +120,7 @@ function Chain({
         setResultText('Success: ' + Buffer.from(vaaData.vaa.payload).toString());
       } catch (ex) {
         console.log("receiveBytes failed ", ex);
-        setResultText('Exception. See console log');
+        setResultText('Exception.' + parseError(ex));
       }
     })();
   }, [signer, provider, chainId, appMsgIdx, getSelectedVaa]);   //appMsgIdx, getSelectedVaa]);

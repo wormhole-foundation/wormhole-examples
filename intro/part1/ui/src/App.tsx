@@ -74,21 +74,29 @@ function Chain({
         signer
       );
       const nonce = createNonce();
+      // Sending message to Wormhole and waiting for it to be signed.
+      // 1. Send string transaction. And wait for Receipt.
+      // sendStr is defined in example contract Messenger.sol
       const sendTx = await sendMsg.sendStr(
         new Uint8Array(Buffer.from(messageText)),
         nonce
       );
       const sendReceipt = await sendTx.wait();
+      // 2. Call into wormhole sdk to get this message sequence.
+      // Sequence is specific to originator.
       const sequence = parseSequenceFromLogEth(
         sendReceipt,
         await sendMsg.wormhole()
       );
+      // 3. Retrieve signed VAA. For this chain and sequence.
       const { vaaBytes } = await getSignedVAAWithRetry(
         WORMHOLE_RPC_HOSTS,
         chainId,
         getEmitterAddressEth(chainToContract(chainId)),
         sequence.toString()
       );
+      // 4. Parse signed VAA and store it for display and use.
+      // VAA use example is in part2.
       const { parse_vaa } = await importCoreWasm();
       const parsedVaa = parse_vaa(vaaBytes);
       addMessage(parsedVaa);
