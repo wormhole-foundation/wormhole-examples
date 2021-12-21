@@ -52,5 +52,4 @@ npm run build
 # Bundle app source
 COPY . .
 
-EXPOSE 6379
-CMD [ "node", "lib/index.js", "--listen_only" ]
+CMD [ "node", "lib/index.js" ]

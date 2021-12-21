@@ -44,7 +44,7 @@ export async function relaySolana(
   const unsignedTransaction = await redeemOnSolana(
     connection,
     chainConfigInfo.bridgeAddress,
-    chainConfigInfo.tokenBridgeAddress,
+    chainConfigInfo.contractAddress,
     payerAddress,
     signedVaaArray
   );
@@ -55,7 +55,7 @@ export async function relaySolana(
   await connection.confirmTransaction(txid);
 
   var success = await getIsTransferCompletedSolana(
-    chainConfigInfo.tokenBridgeAddress,
+    chainConfigInfo.contractAddress,
     signedVaaArray,
     connection
   );

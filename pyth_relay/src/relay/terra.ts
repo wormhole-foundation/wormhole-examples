@@ -1,10 +1,11 @@
-import {
-  getIsTransferCompletedTerra,
-  hexToUint8Array,
-} from "@certusone/wormhole-sdk";
+import { hexToUint8Array } from "@certusone/wormhole-sdk";
 import { redeemOnTerra, transferFromTerra } from "@certusone/wormhole-sdk";
 import { LCDClient, MnemonicKey, Msg, Wallet } from "@terra-money/terra.js";
 import { ChainConfigInfo } from "../configureEnv";
+import { fromUint8Array } from "js-base64";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
+
+import * as helpers from "../helpers";
 
 export async function relayTerra(
   chainConfigInfo: ChainConfigInfo,
@@ -24,18 +25,18 @@ export async function relayTerra(
   });
   const wallet = lcd.wallet(mk);
 
-  // console.log(
-  //   "relaying to terra, terraChainId: [%s], private key: [%s], tokenBridgeAddress: [%s], accAddress: [%s], signedVAA: [%s]",
-  //   terraChainId,
-  //   chainConfigInfo.walletPrivateKey,
-  //   chainConfigInfo.tokenBridgeAddress,
-  //   wallet.key.accAddress,
-  //   signedVAA
-  // );
+  console.log(
+    "relaying to terra, terraChainId: [%s], private key: [%s], contractAddress: [%s], accAddress: [%s], pythData: [%s]",
+    terraChainId,
+    chainConfigInfo.walletPrivateKey,
+    chainConfigInfo.contractAddress,
+    wallet.key.accAddress,
+    signedVAA
+  );
 
   // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
   const msg = await redeemOnTerra(
-    chainConfigInfo.tokenBridgeAddress,
+    chainConfigInfo.contractAddress,
     wallet.key.accAddress,
     signedVaaArray
   );
@@ -60,7 +61,39 @@ export async function relayTerra(
   });
 
   const receipt = await lcd.tx.broadcast(tx);
-
-  console.log("submit to terra: receipt:", receipt);
+  console.log("submitted to terra: receipt:", receipt);
   return { redeemed: true, result: receipt };
+}
+
+export async function queryTerra(
+  chainConfigInfo: ChainConfigInfo,
+  terraChainId: string,
+  productIdStr: string
+) {
+  const encodedProductId = fromUint8Array(hexToUint8Array(productIdStr));
+
+  console.log(
+    "Querying terra for price info for productId [%s], encoded as [%s]",
+    productIdStr,
+    encodedProductId
+  );
+
+  const lcdConfig = {
+    URL: chainConfigInfo.nodeUrl,
+    chainID: terraChainId,
+    name: "localhost",
+  };
+  const lcd = new LCDClient(lcdConfig);
+
+  const query_result = await lcd.wasm.contractQuery(
+    chainConfigInfo.contractAddress,
+    {
+      price_info: {
+        product_id: encodedProductId,
+      },
+    }
+  );
+
+  console.log("queryTerra: query returned:", query_result);
+  return query_result;
 }

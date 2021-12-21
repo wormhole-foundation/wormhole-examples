@@ -23,12 +23,12 @@ export async function relayEVM(
   const signer = new ethers.Wallet(chainConfigInfo.walletPrivateKey, provider);
   const receipt = unwrapNative
     ? await redeemOnEthNative(
-        chainConfigInfo.tokenBridgeAddress,
+        chainConfigInfo.contractAddress,
         signer,
         signedVaaArray
       )
     : await redeemOnEth(
-        chainConfigInfo.tokenBridgeAddress,
+        chainConfigInfo.contractAddress,
         signer,
         signedVaaArray
       );
@@ -36,7 +36,7 @@ export async function relayEVM(
   console.log("redeemed on evm: receipt:", receipt);
 
   var success = await getIsTransferCompletedEth(
-    chainConfigInfo.tokenBridgeAddress,
+    chainConfigInfo.contractAddress,
     provider,
     signedVaaArray
   );

@@ -8,7 +8,7 @@ export type RelayerEnvironment = {
 export type ChainConfigInfo = {
   chainId: ChainId;
   nodeUrl: string;
-  tokenBridgeAddress: string;
+  contractAddress: string;
   bridgeAddress?: string;
   walletPrivateKey: string;
 };
@@ -18,9 +18,9 @@ export function validateEnvironment(): RelayerEnvironment {
   setDefaultWasm("node");
   require("dotenv").config({ path: ".env.sample" });
   const supportedChains: ChainConfigInfo[] = [];
-  supportedChains.push(configSol());
-  supportedChains.push(configEth());
-  supportedChains.push(configBsc());
+  // supportedChains.push(configSol());
+  // supportedChains.push(configEth());
+  // supportedChains.push(configBsc());
   supportedChains.push(configTerra());
 
   return { supportedChains };
@@ -35,8 +35,8 @@ function configEth(): ChainConfigInfo {
     console.error("Missing environment variable ETH_PRIVATE_KEY");
     process.exit(1);
   }
-  if (!process.env.ETH_TOKEN_BRIDGE_ADDRESS) {
-    console.error("Missing environment variable ETH_TOKEN_BRIDGE_ADDRESS");
+  if (!process.env.ETH_PYTH_CONTRACT_ADDRESS) {
+    console.error("Missing environment variable ETH_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
   }
 
@@ -44,7 +44,7 @@ function configEth(): ChainConfigInfo {
     chainId: 2,
     nodeUrl: process.env.ETH_NODE_URL,
     walletPrivateKey: process.env.ETH_PRIVATE_KEY,
-    tokenBridgeAddress: process.env.ETH_TOKEN_BRIDGE_ADDRESS,
+    contractAddress: process.env.ETH_PYTH_CONTRACT_ADDRESS,
   };
 }
 
@@ -57,8 +57,8 @@ function configBsc(): ChainConfigInfo {
     console.error("Missing environment variable BSC_PRIVATE_KEY");
     process.exit(1);
   }
-  if (!process.env.BSC_TOKEN_BRIDGE_ADDRESS) {
-    console.error("Missing environment variable BSC_TOKEN_BRIDGE_ADDRESS");
+  if (!process.env.BSC_PYTH_CONTRACT_ADDRESS) {
+    console.error("Missing environment variable BSC_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
   }
 
@@ -66,7 +66,7 @@ function configBsc(): ChainConfigInfo {
     chainId: 4,
     nodeUrl: process.env.BSC_NODE_URL,
     walletPrivateKey: process.env.BSC_PRIVATE_KEY,
-    tokenBridgeAddress: process.env.BSC_TOKEN_BRIDGE_ADDRESS,
+    contractAddress: process.env.BSC_PYTH_CONTRACT_ADDRESS,
   };
 }
 
@@ -79,8 +79,8 @@ function configSol(): ChainConfigInfo {
     console.error("Missing environment variable SOL_PRIVATE_KEY");
     process.exit(1);
   }
-  if (!process.env.SOL_TOKEN_BRIDGE_ADDRESS) {
-    console.error("Missing environment variable SOL_TOKEN_BRIDGE_ADDRESS");
+  if (!process.env.SOL_PYTH_CONTRACT_ADDRESS) {
+    console.error("Missing environment variable SOL_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
   }
   if (!process.env.SOL_BRIDGE_ADDRESS) {
@@ -92,7 +92,7 @@ function configSol(): ChainConfigInfo {
     chainId: 1,
     nodeUrl: process.env.SOL_NODE_URL,
     walletPrivateKey: process.env.SOL_PRIVATE_KEY,
-    tokenBridgeAddress: process.env.SOL_TOKEN_BRIDGE_ADDRESS,
+    contractAddress: process.env.SOL_PYTH_CONTRACT_ADDRESS,
     bridgeAddress: process.env.SOL_BRIDGE_ADDRESS,
   };
 }
@@ -115,6 +115,6 @@ function configTerra(): ChainConfigInfo {
     chainId: 3,
     nodeUrl: process.env.TERRA_NODE_URL,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
-    tokenBridgeAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
+    contractAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
   };
 }

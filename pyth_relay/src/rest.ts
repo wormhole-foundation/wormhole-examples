@@ -2,6 +2,7 @@ import { createClient } from "redis";
 import axios from "axios";
 import { ChainId } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
+import { query } from "./relay/main";
 
 export async function rest(restPort: number) {
   const RELAYER_URL = "http://localhost:3001/relay";
@@ -16,14 +17,14 @@ export async function rest(restPort: number) {
   );
 
   (async () => {
-    const rclient = createClient();
-    await rclient.connect();
-
-    app.get("/query/:product_id/:price_id", async (req, res) => {
+    app.get("/querydb/:product_id/:price_id", async (req, res) => {
       var key: helpers.StoreKey = {
-        product_id: req.product_id,
+        product_id: req.params.product_id,
         price_id: req.params.price_id,
       };
+
+      const rclient = createClient();
+      await rclient.connect();
 
       await rclient.select(helpers.INCOMING);
       var result = await rclient.get(helpers.storeKeyToJson(key));
@@ -46,6 +47,13 @@ export async function rest(restPort: number) {
       res.json(result);
     });
 
-    app.get("/", (req, res) => res.json("/query/<product_id>/<price_id>"));
+    app.get("/queryterra/:product_id", async (req, res) => {
+      var result = await query(req.params.product_id);
+      res.json(result);
+    });
+
+    app.get("/", (req, res) =>
+      res.json(["/querydb/<product_id>/<price_id>", "/queryterra/<product_id>"])
+    );
   })();
 }

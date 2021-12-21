@@ -107,13 +107,13 @@ async function encodeEmitterAddress(
 async function processVaa(vaaBytes: string) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
-  console.log(
-    "processVaa, vaa len: ",
-    vaaBytes.length,
-    ", payload len: ",
-    parsedVAA.payload.length
-  );
-  console.log(parsedVAA);
+  // console.log(
+  //   "processVaa, vaa len: ",
+  //   vaaBytes.length,
+  //   ", payload len: ",
+  //   parsedVAA.payload.length
+  // );
+  // console.log(parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
     if (parsedVAA.payload.length !== helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
@@ -149,46 +149,45 @@ async function processVaa(vaaBytes: string) {
     seqMap.set(storeKeyStr, parsedVAA.sequence);
 
     console.log(
-      "processing: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, payload: [%s]",
+      "processing: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, timeStamp: %d, payload: [%s]",
       parsedVAA.emitter_chain,
       uint8ArrayToHex(parsedVAA.emitter_address),
       parsedVAA.sequence,
       pa.magic.toString(16),
       pa.version,
-      hexToNativeString(pa.productId, CHAIN_ID_SOLANA),
-      hexToNativeString(pa.priceId, CHAIN_ID_SOLANA),
+      pa.payloadId,
+      pa.productId,
       pa.priceId,
       pa.priceType,
       pa.price,
       pa.exponent,
       pa.confidenceInterval,
+      pa.timestamp,
       uint8ArrayToHex(parsedVAA.payload)
     );
 
-    // const myRedisClient = await connectToRedis();
-    // if (myRedisClient) {
-    //   console.log("Got a valid client from connect");
-    // } else {
-    //   console.error("Invalid client from connect");
-    //   return;
-    // }
+    const myRedisClient = await connectToRedis();
+    if (myRedisClient) {
+      console.log("Got a valid client from connect");
+    } else {
+      console.error("Invalid client from connect");
+      return;
+    }
 
-    // var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    // await storeInRedis(
-    //   myRedisClient,
-    //   helpers.storeKeyToJson(storeKey),
-    //   helpers.storePayloadToJson(storePayload)
-    // );
+    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+    await storeInRedis(
+      myRedisClient,
+      helpers.storeKeyToJson(storeKey),
+      helpers.storePayloadToJson(storePayload)
+    );
 
-    // await myRedisClient.quit();
-    // } else {
-    //   console.log(
-    //     "dropping vaa, payload type %d",
-    //     parsedVAA.payload[0],
-    //     parsedVAA
-    //   );
+    await myRedisClient.quit();
   } else {
-    console.log("dropping non-pyth vaa");
+    console.log(
+      "dropping non-pyth vaa, payload type %d",
+      parsedVAA.payload[0],
+      parsedVAA
+    );
   }
 }
 
