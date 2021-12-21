@@ -10,6 +10,7 @@ import { uint8ArrayToNative } from "@certusone/wormhole-sdk/lib/esm";
 import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSignedVAAWithRetry";
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/esm/solana/wasm";
 import { hexlify, hexStripZeros } from "@ethersproject/bytes";
+import { Web3Provider } from "@ethersproject/providers";
 import {
   Box,
   Button,
@@ -29,6 +30,7 @@ import { address as ETH_CONTRACT_ADDRESS } from "./contract-addresses/developmen
 import { address as BSC_CONTRACT_ADDRESS } from "./contract-addresses/development2";
 import { useEthereumProvider } from "./EthereumProviderContext";
 import { Messenger__factory } from "./ethers-contracts";
+import { useSnackbar } from 'notistack';
 
 interface ParsedVaa {
   consistency_level: number;
@@ -49,10 +51,15 @@ interface SentVaaData {
 
 const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
 
+const chainToNetworkDec = (c: ChainId) =>
+  c === 2 ? 1337 : c === 4 ? 1397 : 0;
+
 const chainToNetwork = (c: ChainId) =>
-  hexStripZeros(hexlify(c === 2 ? 1337 : c === 4 ? 1397 : 0));
+  hexStripZeros(hexlify(chainToNetworkDec(c)));
+
 const chainToContract = (c: ChainId) =>
   c === 2 ? ETH_CONTRACT_ADDRESS : c === 4 ? BSC_CONTRACT_ADDRESS : "";
+
 const chainToName = (c: ChainId) =>
   c === 2
     ? "Ethereum"
@@ -60,16 +67,28 @@ const chainToName = (c: ChainId) =>
     ? "BSC"
     : "Unknown";
 
-  const MM_ERR_WITH_INFO_START =
-    "VM Exception while processing transaction: revert ";
-  const parseError = (e: any) =>
-    e?.data?.message?.startsWith(MM_ERR_WITH_INFO_START)
-      ? e.data.message.replace(MM_ERR_WITH_INFO_START, "")
-      : e?.response?.data?.error // terra error
-      ? e.response.data.error
-      : e?.message
-      ? e.message
-      : "An unknown error occurred";
+const MM_ERR_WITH_INFO_START =
+  "VM Exception while processing transaction: revert ";
+const parseError = (e: any) =>
+  e?.data?.message?.startsWith(MM_ERR_WITH_INFO_START)
+    ? e.data.message.replace(MM_ERR_WITH_INFO_START, "")
+    : e?.response?.data?.error // terra error
+    ? e.response.data.error
+    : e?.message
+    ? e.message
+    : "An unknown error occurred";
+
+const switchProviderNetwork = async(provider: Web3Provider, chainId: ChainId) => {
+  await provider.send("wallet_switchEthereumChain", [
+    { chainId: chainToNetwork(chainId) },
+  ]);
+  const cNetwork = await provider.getNetwork();
+  // This is workaround for when Metamask fails to switch network.
+  if(cNetwork.chainId !== chainToNetworkDec(chainId)) {
+        console.log('switchProviderNetwork did not work');
+        throw new Error("Metamask could not switch network");
+  }
+}
 
 function Chain({
   name,
@@ -89,28 +108,24 @@ function Chain({
   const [resultText, setResultText] = useState("");
   const handleChange = useCallback((event) => {
     setMessageText(event.target.value);
-
   }, []);
+  const { enqueueSnackbar } = useSnackbar();  //closeSnackbar
 
   const processClickHandler = useCallback(() => {
     console.log('---Process---- idx:' + appMsgIdx);
     const vaaData = getSelectedVaa();
     console.log('vaa seq: '+vaaData.vaa.sequence+' chain: '+vaaData.vaa.emitter_chain+' will be processed on:'+chainId);
     console.log('string was: '+Buffer.from(vaaData.vaa.payload).toString());
-    console.log('emmiter: '+vaaData.vaa.emitter_address);
-
+    // console.log('emmiter: '+vaaData.vaa.emitter_address);
     if (!signer || !provider) return;
     (async () => {
-      await provider.send("wallet_switchEthereumChain", [
-         { chainId: chainToNetwork(chainId) },
-      ]);
-      const Messenger = Messenger__factory.connect(
-        chainToContract(chainId),
-        signer
-      );
-      const nonce = createNonce();
-
       try {
+        await switchProviderNetwork(provider, chainId);
+        const Messenger = Messenger__factory.connect(
+          chainToContract(chainId),
+          signer
+        );
+        const nonce = createNonce();
         const sendTx = await Messenger.receiveBytes(
           vaaData.bytes,
           nonce
@@ -118,44 +133,52 @@ function Chain({
         const sendReceipt = await sendTx.wait();
         console.log(sendReceipt);
         setResultText('Success: ' + Buffer.from(vaaData.vaa.payload).toString());
-      } catch (ex) {
-        console.log("receiveBytes failed ", ex);
-        setResultText('Exception.' + parseError(ex));
+      } catch (e) {
+        console.log("receiveBytes failed ", e);
+        setResultText('Exception: ' + parseError(e));
+        enqueueSnackbar("EXCEPTION in Process: " + parseError(e), { 
+          persist: false,
+        });
       }
     })();
-  }, [signer, provider, chainId, appMsgIdx, getSelectedVaa]);   //appMsgIdx, getSelectedVaa]);
+  }, [signer, provider, chainId, appMsgIdx, getSelectedVaa, enqueueSnackbar]);   //appMsgIdx, getSelectedVaa]);
 
   const sendClickHandler = useCallback(() => {
     if (!signer || !provider) return;
     (async () => {
-      await provider.send("wallet_switchEthereumChain", [
-        { chainId: chainToNetwork(chainId) },
-      ]);
-      const Messenger = Messenger__factory.connect(
-        chainToContract(chainId),
-        signer
-      );
-      const nonce = createNonce();
-      const bytesToSend = Buffer.from(messageText);
-      const sendTx = await Messenger.sendStr(
-        new Uint8Array(bytesToSend),
-        nonce
-      );
-      const sendReceipt = await sendTx.wait();
-      const sequence = parseSequenceFromLogEth(
-        sendReceipt,
-        await Messenger.wormhole()
-      );
-      const { vaaBytes } = await getSignedVAAWithRetry(
-        WORMHOLE_RPC_HOSTS,
-        chainId,
-        getEmitterAddressEth(chainToContract(chainId)),
-        sequence.toString()
-      );
-      const { parse_vaa } = await importCoreWasm();
-      addMessage({vaa:parse_vaa(vaaBytes), bytes:vaaBytes});
+      try {
+        await switchProviderNetwork(provider, chainId);
+        const Messenger = Messenger__factory.connect(
+          chainToContract(chainId),
+          signer
+        );
+        const nonce = createNonce();
+        const bytesToSend = Buffer.from(messageText);
+        const sendTx = await Messenger.sendStr(
+          new Uint8Array(bytesToSend),
+          nonce
+        );
+        const sendReceipt = await sendTx.wait();
+        const sequence = parseSequenceFromLogEth(
+          sendReceipt,
+          await Messenger.wormhole()
+        );
+        const { vaaBytes } = await getSignedVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          chainId,
+          getEmitterAddressEth(chainToContract(chainId)),
+          sequence.toString()
+        );
+        const { parse_vaa } = await importCoreWasm();
+        addMessage({vaa:parse_vaa(vaaBytes), bytes:vaaBytes});
+      } catch (e) {
+        console.log("EXCEPTION in Send: " + e);
+        enqueueSnackbar("EXCEPTION in Send: " + parseError(e), { 
+          persist: false,
+        });
+      }
     })();
-  }, [provider, signer, chainId, messageText, addMessage]);
+  }, [provider, signer, chainId, messageText, addMessage, enqueueSnackbar]);
 
   return (
     <Card sx={{ m: 2 }}>
@@ -209,6 +232,7 @@ function App() {
     return messages[selectedIndex];
   });
   const addMessage = useCallback((message: SentVaaData) => {
+    // setMessages((arr) => arr.concat(message)); // Recent at the bottom
     setMessages((arr) => [message, ...arr]);
   }, []);
   return (
@@ -267,11 +291,11 @@ function App() {
                         selected={selectedIndex === index}
                         onClick={()=>{setSelectedIndex(index);}}
                       >
-                        <ListItemText
+                        <ListItemText sx={{wordBreak: 'break-all'}}
                           primary={Buffer.from(message.vaa.payload).toString()}
                           secondary={key}
                         />
-                        </ListItemButton>
+                      </ListItemButton>
                     </ListItem>
                   );
                 })}
