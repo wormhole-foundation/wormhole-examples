@@ -86,7 +86,7 @@ export async function relayTerra(
   console.log("DEBUG: looking up gas,", new Date().toISOString());
   //Alternate FCD methodology
   //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
-  const gasPrices = await connectionData.lcdClient.config.gasPrices;
+  const gasPrices = connectionData.lcdClient.config.gasPrices;
 
   console.log("DEBUG: estimating fees,", new Date().toISOString());
   //const walletSequence = await wallet.sequence();
@@ -106,7 +106,7 @@ export async function relayTerra(
     memo: "Relayer - Complete Transfer",
     feeDenoms: ["uluna"],
     gasPrices,
-    // fee: feeEstimate,
+    fee: feeEstimate,
   });
 
   console.log("DEBUG: sending msg,", new Date().toISOString());
