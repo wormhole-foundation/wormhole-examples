@@ -1,15 +1,11 @@
 import { createClient } from "redis";
 
-import { relay } from "./relay/main";
-
 import {
   ChainId,
   CHAIN_ID_SOLANA,
   CHAIN_ID_TERRA,
-  hexToNativeString,
   hexToUint8Array,
   uint8ArrayToHex,
-  parseTransferPayload,
   getEmitterAddressEth,
   getEmitterAddressSolana,
   getEmitterAddressTerra,

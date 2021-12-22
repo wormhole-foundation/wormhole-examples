@@ -73,7 +73,7 @@ export async function relayTerra(
   signedVAA: string
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
-  console.log("relaying to terra, pythData: [%s]");
+  console.log("relaying to terra, pythData: [%s]", signedVAA);
 
   console.log("DEBUG: creating message,", new Date().toISOString());
   // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
@@ -88,17 +88,17 @@ export async function relayTerra(
   //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
   const gasPrices = await connectionData.lcdClient.config.gasPrices;
 
-  // console.log("DEBUG: estimating fees,", new Date().toISOString());
-  // //const walletSequence = await wallet.sequence();
-  // const feeEstimate = await connectionData.lcdClient.tx.estimateFee(
-  //   connectionData.wallet.key.accAddress,
-  //   [msg],
-  //   {
-  //     //TODO figure out type mismatch
-  //     feeDenoms: ["uluna"],
-  //     gasPrices,
-  //   }
-  // );
+  console.log("DEBUG: estimating fees,", new Date().toISOString());
+  //const walletSequence = await wallet.sequence();
+  const feeEstimate = await connectionData.lcdClient.tx.estimateFee(
+    connectionData.wallet.key.accAddress,
+    [msg],
+    {
+      //TODO figure out type mismatch
+      feeDenoms: ["uluna"],
+      gasPrices,
+    }
+  );
 
   console.log("DEBUG: creating transaction,", new Date().toISOString());
   const tx = await connectionData.wallet.createAndSignTx({
