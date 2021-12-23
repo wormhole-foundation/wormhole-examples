@@ -55,6 +55,13 @@ const chainToNetwork = (c: ChainId) =>
 const chainToContract = (c: ChainId) =>
   c === 2 ? ETH_CONTRACT_ADDRESS : c === 4 ? BSC_CONTRACT_ADDRESS : "";
 
+const chainToName = (c: ChainId) =>
+  c === 2
+    ? "Ethereum"
+    : c === 4
+    ? "BSC"
+    : "Unknown";
+
 const MM_ERR_WITH_INFO_START =
   "VM Exception while processing transaction: revert ";
 const parseError = (e: any) =>
@@ -214,7 +221,7 @@ function App() {
             <CardContent>
               <List>
                 {messages.map((message) => {
-                  const key = `${message.emitter_chain}-${uint8ArrayToNative(
+                    const key = `${chainToName(message.emitter_chain)}-${uint8ArrayToNative(
                     message.emitter_address,
                     message.emitter_chain
                   )}-${message.sequence}`;
