@@ -35,8 +35,8 @@ contract Messenger is Ownable {
         require(!_completedMessages[vm.hash], " message already received");
         _completedMessages[vm.hash] = true;
 
-        // Action place.. Store payload somewhere for later retrieval. [time?? -> bytes]
-
+        // Action place..
+        // At this point payload is good to be used for what actual contract needs to do. Like transfer(s) etc
     }
 
     // Check if receiveBytes emmiter is actually registered chan.
