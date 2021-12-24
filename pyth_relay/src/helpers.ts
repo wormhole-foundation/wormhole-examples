@@ -1,7 +1,61 @@
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
+// import { logger } from "ethers";
 
 export const INCOMING = 0;
 export const WORKING = 1;
+
+export var logger;
+
+export function initLogger() {
+  const winston = require("winston");
+
+  var useConsole: boolean = true;
+  var logFileName: string;
+  if (process.env.LOG_DIR) {
+    useConsole = false;
+    logFileName =
+      process.env.LOG_DIR + "/pyth_relay." + new Date().toISOString() + ".log";
+  }
+
+  var logLevel = "info";
+  if (process.env.LOG_LEVEL) {
+    logLevel = process.env.LOG_LEVEL;
+  }
+
+  var transport: any;
+  if (useConsole) {
+    console.log("pyth_relay is logging to the console at level [%s]", logLevel);
+
+    transport = new winston.transports.Console();
+  } else {
+    console.log(
+      "pyth_relay is logging to [%s] at level [%s]",
+      logFileName,
+      logLevel
+    );
+
+    transport = new winston.transports.File({
+      filename: logFileName,
+      level: logLevel,
+    });
+  }
+
+  const logConfiguration = {
+    transports: [transport],
+    format: winston.format.combine(
+      winston.format.splat(),
+      winston.format.simple(),
+      winston.format.timestamp({
+        format: "YYYY-MM-DD HH:mm:ss.SSS",
+      }),
+      winston.format.printf(
+        (info) => `${[info.timestamp]}|${info.level}|${info.message}`
+      )
+    ),
+  };
+
+  logger = winston.createLogger(logConfiguration);
+}
 
 export type StoreKey = {
   product_id: string;

@@ -2,6 +2,7 @@ import { createClient } from "redis";
 import axios from "axios";
 import { ChainId } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
+import { logger } from "./helpers";
 import { query } from "./relay/main";
 
 export async function rest(restPort: number) {
@@ -13,7 +14,7 @@ export async function rest(restPort: number) {
   app.use(cors());
 
   app.listen(restPort, () =>
-    console.log("listening on REST port %d!", restPort)
+    logger.debug("listening on REST port " + restPort)
   );
 
   (async () => {
@@ -29,18 +30,22 @@ export async function rest(restPort: number) {
       await rclient.select(helpers.INCOMING);
       var result = await rclient.get(helpers.storeKeyToJson(key));
       if (result) {
-        console.log(
-          "REST query of [%s] found entry in incoming store, returning [%s]",
-          helpers.storeKeyToJson(key),
-          result
+        logger.info(
+          "REST query of [" +
+            helpers.storeKeyToJson(key) +
+            "] found entry in incoming store, returning [" +
+            result +
+            "]"
         );
       } else {
         await rclient.select(helpers.WORKING);
         var result = await rclient.get(helpers.storeKeyToJson(key));
-        console.log(
-          "REST query of [%s] looked for entry in incoming store, returning [%s]",
-          helpers.storeKeyToJson(key),
-          result
+        logger.info(
+          "REST query of [" +
+            helpers.storeKeyToJson(key) +
+            "] looked for entry in incoming store, returning [" +
+            result +
+            "]"
         );
       }
 

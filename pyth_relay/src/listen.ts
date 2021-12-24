@@ -19,19 +19,21 @@ import {
 import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
+import { logger } from "./helpers";
 
 var seqMap = new Map<string, number>();
 
 export async function listen() {
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
-    console.error("Missing environment variable SPY_SERVICE_HOST");
+    logger.error("Missing environment variable SPY_SERVICE_HOST");
     process.exit(1);
   }
 
-  console.log(
-    "pyth_relay starting up, will listen for signed VAAs from [%s]",
-    process.env.SPY_SERVICE_HOST
+  logger.info(
+    "pyth_relay starting up, will listen for signed VAAs from [" +
+      process.env.SPY_SERVICE_HOST +
+      "]"
   );
 
   // Connect to redis globally
@@ -59,20 +61,22 @@ export async function listen() {
             emitterAddress: myEmitterAddress,
           },
         };
-        console.log(
-          "adding filter: chainId: [%i], emitterAddress: [%s]",
-          myEmitterFilter.emitterFilter.chainId,
-          myEmitterFilter.emitterFilter.emitterAddress
+        logger.info(
+          "adding filter: chainId: [" +
+            myEmitterFilter.emitterFilter.chainId +
+            "], emitterAddress: [" +
+            myEmitterFilter.emitterFilter.emitterAddress +
+            "]"
         );
         myFilters.push(myEmitterFilter);
       }
 
-      console.log("setting", myFilters.length, "filters");
+      logger.info("setting " + myFilters.length + " filters");
       filter = {
         filters: myFilters,
       };
     } else {
-      console.log("processing all signed VAAs");
+      logger.info("processing all signed VAAs");
     }
 
     const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
@@ -82,7 +86,7 @@ export async function listen() {
       processVaa(vaaBytes);
     });
 
-    console.log("pyth_relay listening for messages");
+    logger.info("pyth_relay listening for messages");
   })();
 }
 
@@ -104,70 +108,88 @@ async function encodeEmitterAddress(
 async function processVaa(vaaBytes: string) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
-  // console.log(
-  //   "processVaa, vaa len: ",
-  //   vaaBytes.length,
-  //   ", payload len: ",
-  //   parsedVAA.payload.length
+  // logger.debug(
+  //   "processVaa, vaa len: " +
+  //     vaaBytes.length +
+  //     ", payload len: " +
+  //     parsedVAA.payload.length
   // );
-  // console.log(parsedVAA);
+
+  // logger.debug("listen:processVaa: parsedVAA: %o", parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
     if (parsedVAA.payload.length !== helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
-      console.error(
-        "dropping vaa because the payload length is wrong: length:",
-        parsedVAA.payload.length,
-        ", expected length:",
-        helpers.PYTH_PRICE_ATTESTATION_LENGTH,
+      logger.error(
+        "dropping vaa because the payload length is wrong: length: " +
+          parsedVAA.payload.length +
+          ", expected length:",
+        helpers.PYTH_PRICE_ATTESTATION_LENGTH + ", vaa: %o",
         parsedVAA
       );
       return;
     }
 
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
+    // logger.debug("listen:processVaa: price attestation: %o", pa);
 
     var storeKey = helpers.storeKeyFromPriceAttestation(pa);
     var storeKeyStr: string = helpers.storeKeyToJson(storeKey);
     var lastSeqNum = seqMap.get(storeKeyStr);
     if (lastSeqNum) {
       if (lastSeqNum >= parsedVAA.sequence) {
-        // console.log(
-        //   "ignoring duplicate: emitter: [%d:%s], productId: [%s], priceId: [%s], seqNum: %d",
-        //   parsedVAA.emitter_chain,
-        //   uint8ArrayToHex(parsedVAA.emitter_address),
-        //   pa.productId,
-        //   pa.priceId,
-        //   parsedVAA.sequence
-        // );
+        logger.debug(
+          "ignoring duplicate: emitter: [" +
+            parsedVAA.emitter_chain +
+            ":" +
+            uint8ArrayToHex(parsedVAA.emitter_address) +
+            "], productId: [" +
+            pa.productId +
+            "], priceId: [" +
+            pa.priceId +
+            "], seqNum: " +
+            parsedVAA.sequence
+        );
         return;
       }
     }
 
     seqMap.set(storeKeyStr, parsedVAA.sequence);
 
-    console.log(
-      "processing: emitter: [%d:%s], seqNum: %d, magic: 0x%s, version: %d, payloadId: %d, productId: [%s], priceId: [%s], priceType: %d, price: %d, exponent: %d, confidenceInterval: %d, timeStamp: %d, payload: [%s]",
-      parsedVAA.emitter_chain,
-      uint8ArrayToHex(parsedVAA.emitter_address),
-      parsedVAA.sequence,
-      pa.magic.toString(16),
-      pa.version,
-      pa.payloadId,
-      pa.productId,
-      pa.priceId,
-      pa.priceType,
-      pa.price,
-      pa.exponent,
-      pa.confidenceInterval,
-      pa.timestamp,
-      uint8ArrayToHex(parsedVAA.payload)
+    logger.info(
+      "processing: emitter: [" +
+        parsedVAA.emitter_chain +
+        ":" +
+        uint8ArrayToHex(parsedVAA.emitter_address) +
+        "], productId: [" +
+        pa.productId +
+        "], priceId: [" +
+        pa.priceId +
+        "], seqNum: " +
+        parsedVAA.sequence +
+        ", productId: [" +
+        pa.productId +
+        "], priceId: [" +
+        pa.priceId +
+        "], priceType: " +
+        pa.priceType +
+        ", price: " +
+        pa.price +
+        ", exponent: " +
+        pa.exponent +
+        ", confidenceInterval: " +
+        pa.confidenceInterval +
+        ", timeStamp: " +
+        pa.timestamp +
+        ", payload: [" +
+        uint8ArrayToHex(parsedVAA.payload) +
+        "]"
     );
 
     const myRedisClient = await connectToRedis();
     if (myRedisClient) {
-      console.log("Got a valid client from connect");
+      logger.debug("Got a valid client from connect");
     } else {
-      console.error("Invalid client from connect");
+      logger.error("Invalid client from connect");
       return;
     }
 
@@ -180,11 +202,12 @@ async function processVaa(vaaBytes: string) {
 
     await myRedisClient.quit();
   } else {
-    // console.log(
-    //   "dropping non-pyth vaa, payload type %d",
-    //   parsedVAA.payload[0],
-    //   parsedVAA
-    // );
+    logger.debug(
+      "dropping non-pyth vaa, payload type " +
+        parsedVAA.payload[0] +
+        ", vaa: %o",
+      parsedVAA
+    );
   }
 }
 
@@ -208,9 +231,9 @@ async function connectToRedis() {
 
   rClient.on("connect", function (err) {
     if (err) {
-      console.error("Redis writer client failed to connect to Redis:", err);
+      logger.error("Redis writer client failed to connect to Redis: %o", err);
     } else {
-      console.log("Redis writer client Connected");
+      logger.debug("Redis writer client Connected");
     }
   });
 
@@ -220,15 +243,15 @@ async function connectToRedis() {
 
 async function storeInRedis(redisClient, name: string, value: string) {
   if (!redisClient) {
-    console.error("invalid redisClient");
+    logger.error("invalid redisClient");
     return;
   }
   if (!name) {
-    console.error("invalid name");
+    logger.error("invalid name");
     return;
   }
   if (!value) {
-    console.error("invalid value");
+    logger.error("invalid value");
     return;
   }
   await redisClient.select(helpers.INCOMING);

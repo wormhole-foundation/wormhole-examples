@@ -3,6 +3,8 @@ import { LCDClient, MnemonicKey, Msg, Wallet } from "@terra-money/terra.js";
 import { hexToUint8Array } from "@certusone/wormhole-sdk";
 import { redeemOnTerra } from "@certusone/wormhole-sdk";
 
+import { logger } from "../helpers";
+
 type TerraConfigData = {
   nodeUrl: string;
   terraChainId: string;
@@ -18,22 +20,22 @@ export type TerraConnectionData = {
 
 export function connectToTerra(): TerraConnectionData {
   if (!process.env.TERRA_NODE_URL) {
-    console.error("Missing environment variable TERRA_NODE_URL");
+    logger.error("Missing environment variable TERRA_NODE_URL");
     process.exit(1);
   }
 
   if (!process.env.TERRA_CHAIN_ID) {
-    console.error("Missing environment variable TERRA_CHAIN_ID");
+    logger.error("Missing environment variable TERRA_CHAIN_ID");
     process.exit(1);
   }
 
   if (!process.env.TERRA_PRIVATE_KEY) {
-    console.error("Missing environment variable TERRA_PRIVATE_KEY");
+    logger.error("Missing environment variable TERRA_PRIVATE_KEY");
     process.exit(1);
   }
 
   if (!process.env.TERRA_PYTH_CONTRACT_ADDRESS) {
-    console.error("Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS");
+    logger.error("Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
   }
 
@@ -44,11 +46,14 @@ export function connectToTerra(): TerraConnectionData {
     contractAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
   };
 
-  console.log(
-    "connecting to Terra: url: [%s], terraChainId: [%s], contractAddress: [%s]",
-    config.nodeUrl,
-    config.terraChainId,
-    config.contractAddress
+  logger.info(
+    "connecting to Terra: url: [" +
+      config.nodeUrl +
+      "], terraChainId: [" +
+      config.terraChainId +
+      "], contractAddress: [" +
+      config.contractAddress +
+      "]"
   );
 
   const lcdConfig = {
@@ -73,9 +78,9 @@ export async function relayTerra(
   signedVAA: string
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
-  console.log("relaying to terra, pythData: [%s]", signedVAA);
+  logger.info("relaying to terra, pythData: [" + signedVAA + "]");
 
-  console.log("DEBUG: creating message,", new Date().toISOString());
+  logger.debug("TIME: creating message,", new Date().toISOString());
   // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
   const msg = await redeemOnTerra(
     connectionData.config.contractAddress,
@@ -83,12 +88,12 @@ export async function relayTerra(
     signedVaaArray
   );
 
-  console.log("DEBUG: looking up gas,", new Date().toISOString());
+  logger.debug("TIME: looking up gas,", new Date().toISOString());
   //Alternate FCD methodology
   //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
   const gasPrices = connectionData.lcdClient.config.gasPrices;
 
-  console.log("DEBUG: estimating fees,", new Date().toISOString());
+  logger.debug("TIME: estimating fees,", new Date().toISOString());
   //const walletSequence = await wallet.sequence();
   const feeEstimate = await connectionData.lcdClient.tx.estimateFee(
     connectionData.wallet.key.accAddress,
@@ -100,7 +105,7 @@ export async function relayTerra(
     }
   );
 
-  console.log("DEBUG: creating transaction,", new Date().toISOString());
+  logger.debug("TIME: creating transaction,", new Date().toISOString());
   const tx = await connectionData.wallet.createAndSignTx({
     msgs: [msg],
     memo: "Relayer - Complete Transfer",
@@ -109,10 +114,10 @@ export async function relayTerra(
     fee: feeEstimate,
   });
 
-  console.log("DEBUG: sending msg,", new Date().toISOString());
+  logger.debug("TIME: sending msg,", new Date().toISOString());
   const receipt = await connectionData.lcdClient.tx.broadcast(tx);
-  console.log("DEBUG: done,", new Date().toISOString());
-  console.log("submitted to terra: receipt:", receipt);
+  logger.debug("TIME: done,", new Date().toISOString());
+  logger.info("TIME:submitted to terra: receipt: %o", receipt);
   return { redeemed: true, result: receipt };
 }
 
@@ -122,10 +127,12 @@ export async function queryTerra(
 ) {
   const encodedProductId = fromUint8Array(hexToUint8Array(productIdStr));
 
-  console.log(
-    "Querying terra for price info for productId [%s], encoded as [%s]",
-    productIdStr,
-    encodedProductId
+  logger.info(
+    "Querying terra for price info for productId [" +
+      productIdStr +
+      "], encoded as [" +
+      encodedProductId +
+      "]"
   );
 
   const query_result = await connectionData.lcdClient.wasm.contractQuery(
@@ -137,6 +144,6 @@ export async function queryTerra(
     }
   );
 
-  console.log("queryTerra: query returned:", query_result);
+  logger.info("queryTerra: query returned: %o", query_result);
   return query_result;
 }

@@ -4,10 +4,14 @@ import { listen } from "./listen";
 import { worker } from "./worker";
 import { rest } from "./rest";
 import * as helpers from "./helpers";
+import { logger } from "./helpers";
 
 require("dotenv").config();
 
 setDefaultWasm("node");
+
+// Set up the logger.
+helpers.initLogger();
 
 var runListen: boolean = true;
 var runWorker: boolean = true;

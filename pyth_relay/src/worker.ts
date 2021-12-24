@@ -25,6 +25,7 @@ import { isAnyArrayBuffer } from "util/types";
 
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
+import { logger } from "./helpers";
 import { connectRelayer, relay } from "./relay/main";
 
 export async function worker() {
@@ -32,22 +33,27 @@ export async function worker() {
   var numWorkers = 1;
   if (process.env.NUM_WORKERS) {
     numWorkers = parseInt(process.env.NUM_WORKERS);
-    console.log("will use %d workers", numWorkers);
+    logger.info("will use " + numWorkers + " workers ");
   }
 
   setDefaultWasm("node");
 
   for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
-    console.log("starting worker %d", workerIdx);
+    logger.debug("[" + workerIdx + "] starting worker ");
     (async () => {
       let myWorkerIdx = workerIdx;
       let connectionData = connectRelayer();
       const redisClient = createClient();
       redisClient.on("connect", function (err) {
         if (err) {
-          console.error("Redis reader client failed to connect to Redis:", err);
+          logger.error(
+            "[" +
+              workerIdx +
+              "] Redis reader client failed to connect to Redis: %o",
+            err
+          );
         } else {
-          console.log("[%d]Redis reader client connected", myWorkerIdx);
+          logger.debug("[" + myWorkerIdx + "] Redis reader client connected");
         }
       });
       await redisClient.connect();
@@ -56,7 +62,7 @@ export async function worker() {
         for await (const si_key of redisClient.scanIterator()) {
           const si_value = await redisClient.get(si_key);
           if (si_value) {
-            // console.log("SI: %s => %s", si_key, si_value);
+            // logger.info("SI: %s => %s", si_key, si_value);
             // Get result from evaluation algorithm
             // If true, then do the transfer
             const shouldDo = evaluate(si_value);
@@ -64,10 +70,12 @@ export async function worker() {
               // Move this entry to from incoming store to working store
               await redisClient.select(helpers.INCOMING);
               if ((await redisClient.del(si_key)) === 0) {
-                console.log(
-                  "[%d]The key [%s] no longer exists in INCOMING",
-                  myWorkerIdx,
-                  si_key
+                logger.debug(
+                  "[" +
+                    myWorkerIdx +
+                    "] The key [" +
+                    si_key +
+                    "] no longer exists in INCOMING"
                 );
                 return;
               }
@@ -87,14 +95,14 @@ export async function worker() {
               await processRequest(redisClient, si_key, connectionData);
             }
           } else {
-            console.error("No si_keyval returned!");
+            logger.error("[" + myWorkerIdx + "] No si_keyval returned!");
           }
         }
         // add sleep
         await helpers.sleep(3000);
       }
 
-      console.log("worker %d exiting", myWorkerIdx);
+      logger.debug("[" + myWorkerIdx + "] worker exiting");
       await redisClient.quit();
     })();
     // Stagger the threads so they don't all wake up at once
@@ -103,43 +111,42 @@ export async function worker() {
 }
 
 function evaluate(blob: string) {
-  // console.log("Checking [%s]", blob);
+  // logger.info("Checking [%s]", blob);
   // if (blob.startsWith("01000000000100e", 14)) {
   // if (Math.floor(Math.random() * 5) == 1) {
-  // console.log("Evaluated true...");
+  // logger.info("Evaluated true...");
   return true;
   // }
-  // console.log("Evaluated false...");
+  // logger.info("Evaluated false...");
   // return false;
 }
 
 async function processRequest(rClient, key: string, connectionData: any) {
-  console.log("Processing request [%s]...", key);
+  logger.debug("Processing request [" + key + "]...");
   // Get the entry from the working store
   await rClient.select(helpers.WORKING);
   var value: string = await rClient.get(key);
   if (!value) {
-    console.error("processRequest could not find key [%s]", key);
+    logger.error("processRequest could not find key [" + key + "]");
     return;
   }
   var storeKey = helpers.storeKeyFromJson(key);
   var payload: helpers.StoreWorkingPayload =
     helpers.workingPayloadFromJson(value);
   if (payload.status !== "Pending") {
-    console.log("This key [%s] has already been processed.", key);
+    logger.info("This key [" + key + "] has already been processed.");
     return;
   }
   // Actually do the processing here and update status and time field
   try {
-    console.log(
-      "processRequest() - Calling with vaa_bytes [%s]",
-      payload.vaa_bytes
+    logger.info(
+      "processRequest() - Calling with vaa_bytes [" + payload.vaa_bytes + "]"
     );
     var relayResult = await relay(payload.vaa_bytes, connectionData);
-    // console.log("processRequest() - relay returned", relayResult);
+    // logger.info("processRequest() - relay returned", relayResult);
     payload.status = relayResult;
   } catch (e) {
-    console.error("processRequest() - failed to relay transfer vaa:", e);
+    logger.error("processRequest() - failed to relay transfer vaa: %o", e);
     payload.status = "Failed: " + e;
   }
   // Put result back into store
