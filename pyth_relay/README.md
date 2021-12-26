@@ -50,8 +50,8 @@ docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/testnet/2/1 --bootstr
 Or run the spy_guardian docker container in MainNet:
 
 ```
-#docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' -p 7073:7073 -d spy_guardian
-docker run -e ARGS='--spyRPC [::]:7073 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' --net=host -d spy_guardian
+#docker run -e ARGS='--spyRPC [::]:7074 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' -p 7073:7073 -d spy_guardian
+docker run -e ARGS='--spyRPC [::]:7074 --network /wormhole/mainnet/2 --bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU' --net=host -d spy_guardian
 
 ```
 
@@ -59,6 +59,7 @@ Then to run the pyth_relay docker container in DevNet do:
 
 ```
 docker run \
+ --volume=.env:/app/pyth_relay/.env \
 -e SPY_SERVICE_HOST=0.0.0.0:7072 \
 -e SPY_SERVICE_FILTERS='[{"chain_id":1,"emitter_address":"71f8dcb863d176e2c420ad6610cf687359612b6fb392e0642b0ca6b1f186aa3b"}]' \
 -e TERRA_NODE_URL=http://localhost:1317 \
@@ -68,26 +69,10 @@ docker run \
 -d \
 --net=host \
 pyth_relay
-```
 
-Then to run the pyth_relay docker container in MainNet do:
-
-```
 docker run \
--e SPY_SERVICE_HOST=0.0.0.0:7073 \
--e SPY_SERVICE_FILTERS='[{"chain_id":1,"emitter_address":"b2dd468c9b8c80b3dd9211e9e3fd6ee4d652eb5997b7c9020feae971c278ab07"}]' \
--e TERRA_NODE_URL=http://localhost:1317 \
--e TERRA_PRIVATE_KEY='notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius' \
--e TERRA_PYTH_CONTRACT_ADDRESS=terra1wgh6adn8geywx0v78zs9azrqtqdegufuegnwep \
--e TERRA_CHAIN_ID=localterra \
--d \
+-e PYTH_RELAY_CONFIG=/app/pyth_relay/env
+--volume=/home/briley/pyth_relay:/app/pyth_relay \
 --net=host \
 pyth_relay
 ```
-
-#SPY_SERVICE_HOST=0.0.0.0:7072
-#SPY_SERVICE_FILTERS=[{"chain_id":1,"emitter_address":"71f8dcb863d176e2c420ad6610cf687359612b6fb392e0642b0ca6b1f186aa3b"}]
-TERRA_NODE_URL=http://localhost:1317
-TERRA_PRIVATE_KEY=notice oak worry limit wrap speak medal online prefer cluster roof addict wrist behave treat actual wasp year salad speed social layer crew genius
-TERRA_PYTH_CONTRACT_ADDRESS=terra1wgh6adn8geywx0v78zs9azrqtqdegufuegnwep
-TERRA_CHAIN_ID=localterra

@@ -6,7 +6,13 @@ import { rest } from "./rest";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 
-require("dotenv").config();
+var configFile: string = ".env";
+if (process.env.PYTH_RELAY_CONFIG) {
+  configFile = process.env.PYTH_RELAY_CONFIG;
+}
+
+console.log("Loading config file [%s]", configFile);
+require("dotenv").config({ path: configFile });
 
 setDefaultWasm("node");
 

@@ -160,10 +160,6 @@ async function processVaa(vaaBytes: string) {
         parsedVAA.emitter_chain +
         ":" +
         uint8ArrayToHex(parsedVAA.emitter_address) +
-        "], productId: [" +
-        pa.productId +
-        "], priceId: [" +
-        pa.priceId +
         "], seqNum: " +
         parsedVAA.sequence +
         ", productId: [" +
