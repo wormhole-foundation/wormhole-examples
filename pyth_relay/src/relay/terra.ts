@@ -8,6 +8,7 @@ import { logger } from "../helpers";
 type TerraConfigData = {
   nodeUrl: string;
   terraChainId: string;
+  terraName: string;
   walletPrivateKey: string;
   contractAddress: string;
 };
@@ -29,6 +30,11 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
     process.exit(1);
   }
 
+  if (!process.env.TERRA_NAME) {
+    logger.error("Missing environment variable TERRA_NAME");
+    process.exit(1);
+  }
+
   if (!process.env.TERRA_PRIVATE_KEY) {
     logger.error("Missing environment variable TERRA_PRIVATE_KEY");
     process.exit(1);
@@ -42,6 +48,7 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
   const config: TerraConfigData = {
     nodeUrl: process.env.TERRA_NODE_URL,
     terraChainId: process.env.TERRA_CHAIN_ID,
+    terraName: process.env.TERRA_NAME,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
     contractAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
   };
@@ -53,6 +60,8 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
       config.nodeUrl +
       "], terraChainId: [" +
       config.terraChainId +
+      "], terraName: [" +
+      config.terraName +
       "], contractAddress: [" +
       config.contractAddress +
       "]"
@@ -61,7 +70,7 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
   const lcdConfig = {
     URL: config.nodeUrl,
     chainID: config.terraChainId,
-    name: "localhost",
+    name: config.terraName,
   };
 
   const lcdClient = new LCDClient(lcdConfig);

@@ -6,10 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node lib/index.js",
-    "listen_only": "node lib/index.js --listen_only",
-    "worker_only": "node lib/index.js --worker_only",
-    "rest_only": "node lib/index.js --rest_only",
-    "test": "jest --config jestconfig.json --verbose"
+    "listen_only": "node lib/index.js --listen_only"
   },
   "author": "",
   "license": "Apache-2.0",

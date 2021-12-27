@@ -22,7 +22,7 @@ import { postEvent } from "./worker";
 
 var seqMap = new Map<string, number>();
 
-export async function listen() {
+export async function listen(listenOnly: boolean) {
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
     logger.error("Missing environment variable SPY_SERVICE_HOST");
@@ -76,7 +76,7 @@ export async function listen() {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes);
+      processVaa(vaaBytes, listenOnly);
     });
 
     logger.info("pyth_relay listening for messages");
@@ -98,7 +98,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes: string) {
+async function processVaa(vaaBytes: string, listenOnly: boolean) {
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // logger.debug(
@@ -174,8 +174,10 @@ async function processVaa(vaaBytes: string) {
         "]"
     );
 
-    logger.debug("posting to worker");
-    await postEvent(storeKeyStr, helpers.storePayloadFromVaaBytes(vaaBytes));
+    if (!listenOnly) {
+      logger.debug("posting to worker");
+      await postEvent(storeKeyStr, helpers.storePayloadFromVaaBytes(vaaBytes));
+    }
   } else {
     logger.debug(
       "dropping non-pyth vaa, payload type " +

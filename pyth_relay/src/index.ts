@@ -19,61 +19,24 @@ setDefaultWasm("node");
 // Set up the logger.
 helpers.initLogger();
 
-var runListen: boolean = true;
-var runWorker: boolean = true;
-var runRest: boolean = true;
-var foundOne: boolean = false;
-
+var listenOnly: boolean = false;
 for (let idx = 0; idx < process.argv.length; ++idx) {
   if (process.argv[idx] === "--listen_only") {
-    if (foundOne) {
-      console.error(
-        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
-      );
-      process.exit(1);
-    }
-    runWorker = false;
-    runRest = false;
-    foundOne = true;
-  }
-
-  if (process.argv[idx] === "--worker_only") {
-    if (foundOne) {
-      console.error(
-        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
-      );
-      process.exit(1);
-    }
-    runListen = false;
-    runRest = false;
-    foundOne = true;
-  }
-
-  if (process.argv[idx] === "--rest_only") {
-    if (foundOne) {
-      console.error(
-        'May only specify one of "--listen_only", "--worker_only" or "--rest_only"'
-      );
-      process.exit(1);
-    }
-    runListen = false;
-    runWorker = false;
-    foundOne = true;
+    logger.info("running in listen only mode, will not relay anything!");
+    listenOnly = true;
   }
 }
 
 // Start the spy listener to listen to the guardians.
-if (runListen) {
-  listen();
-}
+listen(listenOnly);
 
-// Start the spy worker to process VAAs from the store.
-if (runWorker) {
+// Start the spy worker to relay messages.
+if (!listenOnly) {
   worker();
 }
 
 // Start the REST server, if configured.
-if (runRest && process.env.REST_PORT) {
+if (!listenOnly && process.env.REST_PORT) {
   var restPort = parseInt(process.env.REST_PORT);
   if (!restPort) {
     console.error(
