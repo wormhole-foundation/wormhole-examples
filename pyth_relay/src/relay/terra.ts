@@ -18,7 +18,7 @@ export type TerraConnectionData = {
   wallet: Wallet;
 };
 
-export function connectToTerra(): TerraConnectionData {
+export function connectToTerra(workerIdx: number): TerraConnectionData {
   if (!process.env.TERRA_NODE_URL) {
     logger.error("Missing environment variable TERRA_NODE_URL");
     process.exit(1);
@@ -47,7 +47,9 @@ export function connectToTerra(): TerraConnectionData {
   };
 
   logger.info(
-    "connecting to Terra: url: [" +
+    "[" +
+      workerIdx +
+      "] connecting to Terra: url: [" +
       config.nodeUrl +
       "], terraChainId: [" +
       config.terraChainId +
@@ -78,7 +80,7 @@ export async function relayTerra(
   signedVAA: string
 ) {
   const signedVaaArray = hexToUint8Array(signedVAA);
-  logger.info("relaying to terra, pythData: [" + signedVAA + "]");
+  logger.debug("relaying to terra, pythData: [" + signedVAA + "]");
 
   logger.debug("TIME: creating message,", new Date().toISOString());
   // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
@@ -117,8 +119,8 @@ export async function relayTerra(
   logger.debug("TIME: sending msg,", new Date().toISOString());
   const receipt = await connectionData.lcdClient.tx.broadcast(tx);
   logger.debug("TIME: done,", new Date().toISOString());
-  logger.info("TIME:submitted to terra: receipt: %o", receipt);
-  return { redeemed: true, result: receipt };
+  logger.debug("TIME:submitted to terra: receipt: %o", receipt);
+  return receipt;
 }
 
 export async function queryTerra(

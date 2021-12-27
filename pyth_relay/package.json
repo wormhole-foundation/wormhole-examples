@@ -34,6 +34,7 @@
     "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.24.0",
     "@terra-money/terra.js": "^2.0.14",
+    "async-mutex": "^0.3.2",
     "body-parser": "^1.19.0",
     "cors": "^2.8.5",
     "dotenv": "^10.0.0",

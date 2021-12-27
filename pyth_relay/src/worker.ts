@@ -1,32 +1,32 @@
-// import {
-//   createSpyRPCServiceClient,
-//   subscribeSignedVAA,
-// } from "@certusone/wormhole-spydk";
-
-// import {
-//   ChainId,
-//   CHAIN_ID_SOLANA,
-//   CHAIN_ID_TERRA,
-//   hexToUint8Array,
-//   uint8ArrayToHex,
-//   parseTransferPayload,
-//   getEmitterAddressEth,
-//   getEmitterAddressSolana,
-//   getEmitterAddressTerra,
-// } from "@certusone/wormhole-sdk";
+import {
+  Mutex,
+  MutexInterface,
+  Semaphore,
+  SemaphoreInterface,
+  withTimeout,
+} from "async-mutex";
 
 import {
   importCoreWasm,
   setDefaultWasm,
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
-import { createClient } from "redis";
-import { isAnyArrayBuffer } from "util/types";
-
-// import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { connectRelayer, relay } from "./relay/main";
+
+const mutex = new Mutex();
+// Note that Map remembers the order of the keys.
+var pendingMap = new Map<string, helpers.StorePayload>(); // The key to this is helpers.storeKeyToJson(storeKey)
+
+type EntryData = {
+  currWorker: number;
+  lastTimePublished: string;
+  numTimesPublished: number;
+  lastResult: any;
+};
+
+var productMap = new Map<string, EntryData>(); // The key to this is helpers.storeKeyToJson(storeKey)
 
 export async function worker() {
   require("dotenv").config();
@@ -38,119 +38,143 @@ export async function worker() {
 
   setDefaultWasm("node");
 
-  for (var workerIdx = 0; workerIdx < numWorkers; ++workerIdx) {
+  for (var workerIdx = 1; workerIdx <= numWorkers; ++workerIdx) {
     logger.debug("[" + workerIdx + "] starting worker ");
     (async () => {
       let myWorkerIdx = workerIdx;
-      let connectionData = connectRelayer();
-      const redisClient = createClient();
-      redisClient.on("connect", function (err) {
-        if (err) {
-          logger.error(
-            "[" +
-              workerIdx +
-              "] Redis reader client failed to connect to Redis: %o",
-            err
-          );
-        } else {
-          logger.debug("[" + myWorkerIdx + "] Redis reader client connected");
-        }
-      });
-      await redisClient.connect();
+      let connectionData = connectRelayer(myWorkerIdx);
       while (true) {
-        await redisClient.select(helpers.INCOMING);
-        for await (const si_key of redisClient.scanIterator()) {
-          const si_value = await redisClient.get(si_key);
-          if (si_value) {
-            // logger.info("SI: %s => %s", si_key, si_value);
-            // Get result from evaluation algorithm
-            // If true, then do the transfer
-            const shouldDo = evaluate(si_value);
-            if (shouldDo) {
-              // Move this entry to from incoming store to working store
-              await redisClient.select(helpers.INCOMING);
-              if ((await redisClient.del(si_key)) === 0) {
+        var foundSomething = false;
+        var entryKey: string;
+        var entryPayload: helpers.StorePayload;
+        await mutex.runExclusive(() => {
+          // Go through the pending map and see if there's anything we can process (any product Id that's not already being processed).
+          for (let [pendingKey, pendingValue] of pendingMap) {
+            let currObj = productMap.get(pendingKey);
+            if (currObj) {
+              if (currObj.currWorker === 0) {
+                currObj.currWorker = myWorkerIdx;
+                currObj.lastTimePublished = new Date().toISOString();
+                productMap.set(pendingKey, currObj);
                 logger.debug(
-                  "[" +
-                    myWorkerIdx +
-                    "] The key [" +
-                    si_key +
-                    "] no longer exists in INCOMING"
+                  "[" + myWorkerIdx + "] processing update %d for [%s]",
+                  currObj.numTimesPublished,
+                  pendingKey
                 );
-                return;
+
+                foundSomething = true;
+                entryKey = pendingKey;
+                entryPayload = pendingValue;
+                pendingMap.delete(pendingKey);
+                break;
+              } else {
+                logger.debug(
+                  "[" + myWorkerIdx + "] entry [%s] is busy, worker is %d",
+                  pendingKey,
+                  currObj.currWorker
+                );
               }
-              await redisClient.select(helpers.WORKING);
-              var oldPayload = helpers.storePayloadFromJson(si_value);
-              var newPayload: helpers.StoreWorkingPayload;
-              newPayload = helpers.initWorkingPayload();
-              newPayload.vaa_bytes = oldPayload.vaa_bytes;
-              await redisClient.set(
-                si_key,
-                helpers.workingPayloadToJson(newPayload)
+            } else {
+              logger.debug(
+                "[" +
+                  myWorkerIdx +
+                  "] this is the first time we are seeing [%s]",
+                pendingKey
               );
+              productMap.set(pendingKey, {
+                currWorker: myWorkerIdx,
+                lastTimePublished: new Date().toISOString(),
+                numTimesPublished: 1,
+                lastResult: "",
+              });
 
-              // I think our redis key needs to change to be productId and priceType.
-
-              // Process the request
-              await processRequest(redisClient, si_key, connectionData);
+              foundSomething = true;
+              entryKey = pendingKey;
+              entryPayload = pendingValue;
+              pendingMap.delete(pendingKey);
+              break;
             }
-          } else {
-            logger.error("[" + myWorkerIdx + "] No si_keyval returned!");
           }
+        });
+
+        if (foundSomething) {
+          logger.debug(
+            "[" + myWorkerIdx + "] processing message: [%s]",
+            entryKey
+          );
+          var relayResult: any;
+          var success = true;
+          try {
+            relayResult = await relay(entryPayload.vaa_bytes, connectionData);
+            if (relayResult.txhash) {
+              relayResult = { txhash: relayResult.txhash };
+            } else if (relayResult.message) {
+              relayResult = "message: " + relayResult.message;
+            }
+          } catch (e) {
+            logger.error("[" + myWorkerIdx + "] relay failed: %o", e);
+            relayResult = "Error: " + e.message;
+            success = false;
+          }
+          await mutex.runExclusive(() => {
+            logger.debug(
+              "[" + myWorkerIdx + "] done processing message: [%s]",
+              entryKey
+            );
+            let currObj = productMap.get(entryKey);
+            currObj.currWorker = 0;
+            currObj.lastResult = relayResult;
+            if (success) {
+              currObj.numTimesPublished = currObj.numTimesPublished + 1;
+            }
+            productMap.set(entryKey, currObj);
+          });
         }
+
         // add sleep
         await helpers.sleep(3000);
       }
-
-      logger.debug("[" + myWorkerIdx + "] worker exiting");
-      await redisClient.quit();
     })();
+
     // Stagger the threads so they don't all wake up at once
     await helpers.sleep(500);
   }
 }
 
-function evaluate(blob: string) {
-  // logger.info("Checking [%s]", blob);
-  // if (blob.startsWith("01000000000100e", 14)) {
-  // if (Math.floor(Math.random() * 5) == 1) {
-  // logger.info("Evaluated true...");
-  return true;
-  // }
-  // logger.info("Evaluated false...");
-  // return false;
+export async function postEvent(
+  storeKeyStr: string,
+  storePayload: helpers.StorePayload
+) {
+  await mutex.runExclusive(() => {
+    pendingMap.set(storeKeyStr, storePayload);
+  });
 }
 
-async function processRequest(rClient, key: string, connectionData: any) {
-  logger.debug("Processing request [" + key + "]...");
-  // Get the entry from the working store
-  await rClient.select(helpers.WORKING);
-  var value: string = await rClient.get(key);
-  if (!value) {
-    logger.error("processRequest could not find key [" + key + "]");
-    return;
-  }
-  var storeKey = helpers.storeKeyFromJson(key);
-  var payload: helpers.StoreWorkingPayload =
-    helpers.workingPayloadFromJson(value);
-  if (payload.status !== "Pending") {
-    logger.info("This key [" + key + "] has already been processed.");
-    return;
-  }
-  // Actually do the processing here and update status and time field
-  try {
-    logger.info(
-      "processRequest() - Calling with vaa_bytes [" + payload.vaa_bytes + "]"
-    );
-    var relayResult = await relay(payload.vaa_bytes, connectionData);
-    // logger.info("processRequest() - relay returned", relayResult);
-    payload.status = relayResult;
-  } catch (e) {
-    logger.error("processRequest() - failed to relay transfer vaa: %o", e);
-    payload.status = "Failed: " + e;
-  }
-  // Put result back into store
-  payload.timestamp = new Date().toString();
-  value = helpers.workingPayloadToJson(payload);
-  await rClient.set(key, value);
+export async function getStatus() {
+  var result = "[";
+  await mutex.runExclusive(() => {
+    var first: boolean = true;
+    for (let [key, value] of productMap) {
+      if (first) {
+        first = false;
+      } else {
+        result = result + ", ";
+      }
+
+      var storeKey = helpers.storeKeyFromJson(key);
+      var item: object = {
+        product_id: storeKey.product_id,
+        price_id: storeKey.price_id,
+        num_times_published: value.numTimesPublished,
+        last_time_published: value.lastTimePublished,
+        curr_being_processed_by: value.currWorker,
+        result: value.lastResult,
+      };
+
+      result = result + JSON.stringify(item);
+    }
+  });
+
+  result = result + "]";
+  return result;
 }

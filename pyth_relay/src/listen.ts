@@ -1,5 +1,3 @@
-import { createClient } from "redis";
-
 import {
   ChainId,
   CHAIN_ID_SOLANA,
@@ -20,6 +18,7 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
+import { postEvent } from "./worker";
 
 var seqMap = new Map<string, number>();
 
@@ -35,12 +34,6 @@ export async function listen() {
       process.env.SPY_SERVICE_HOST +
       "]"
   );
-
-  // Connect to redis globally
-  // var myRedisClient;
-  // async () => {
-  //   myRedisClient = await connectToRedis();
-  // };
 
   (async () => {
     var filter = {};
@@ -181,22 +174,8 @@ async function processVaa(vaaBytes: string) {
         "]"
     );
 
-    const myRedisClient = await connectToRedis();
-    if (myRedisClient) {
-      logger.debug("Got a valid client from connect");
-    } else {
-      logger.error("Invalid client from connect");
-      return;
-    }
-
-    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    await storeInRedis(
-      myRedisClient,
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
-
-    await myRedisClient.quit();
+    logger.debug("posting to worker");
+    await postEvent(storeKeyStr, helpers.storePayloadFromVaaBytes(vaaBytes));
   } else {
     logger.debug(
       "dropping non-pyth vaa, payload type " +
@@ -220,36 +199,4 @@ function isPyth(payload): boolean {
   }
 
   return false;
-}
-
-async function connectToRedis() {
-  var rClient = createClient();
-
-  rClient.on("connect", function (err) {
-    if (err) {
-      logger.error("Redis writer client failed to connect to Redis: %o", err);
-    } else {
-      logger.debug("Redis writer client Connected");
-    }
-  });
-
-  await rClient.connect();
-  return rClient;
-}
-
-async function storeInRedis(redisClient, name: string, value: string) {
-  if (!redisClient) {
-    logger.error("invalid redisClient");
-    return;
-  }
-  if (!name) {
-    logger.error("invalid name");
-    return;
-  }
-  if (!value) {
-    logger.error("invalid value");
-    return;
-  }
-  await redisClient.select(helpers.INCOMING);
-  await redisClient.set(name, value);
 }

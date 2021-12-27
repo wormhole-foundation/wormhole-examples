@@ -9,8 +9,8 @@ export type ConnectionData = {
   terraData: TerraConnectionData;
 };
 
-export function connectRelayer(): ConnectionData {
-  var td = connectToTerra();
+export function connectRelayer(workerIdx: number): ConnectionData {
+  var td = connectToTerra(workerIdx);
   return { terraData: td };
 }
 
@@ -22,6 +22,6 @@ export async function relay(
 }
 
 export async function query(productIdStr: string): Promise<any> {
-  var terraData = connectToTerra();
+  var terraData = connectToTerra(0);
   return await queryTerra(terraData, productIdStr);
 }
