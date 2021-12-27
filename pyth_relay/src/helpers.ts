@@ -26,7 +26,9 @@ export function initLogger() {
   if (useConsole) {
     console.log("pyth_relay is logging to the console at level [%s]", logLevel);
 
-    transport = new winston.transports.Console();
+    transport = new winston.transports.Console({
+      level: logLevel,
+    });
   } else {
     console.log(
       "pyth_relay is logging to [%s] at level [%s]",
