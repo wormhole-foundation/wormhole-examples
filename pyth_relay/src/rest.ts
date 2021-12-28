@@ -24,51 +24,13 @@ export async function rest(restPort: number) {
       res.json(result);
     });
 
-    app.get("/querydb/:product_id/:price_id", async (req, res) => {
-      var key: helpers.StoreKey = {
-        product_id: req.params.product_id,
-        price_id: req.params.price_id,
-      };
-
-      const rclient = createClient();
-      await rclient.connect();
-
-      await rclient.select(helpers.INCOMING);
-      var result = await rclient.get(helpers.storeKeyToJson(key));
-      if (result) {
-        logger.info(
-          "REST query of [" +
-            helpers.storeKeyToJson(key) +
-            "] found entry in incoming store, returning [" +
-            result +
-            "]"
-        );
-      } else {
-        await rclient.select(helpers.WORKING);
-        var result = await rclient.get(helpers.storeKeyToJson(key));
-        logger.info(
-          "REST query of [" +
-            helpers.storeKeyToJson(key) +
-            "] looked for entry in incoming store, returning [" +
-            result +
-            "]"
-        );
-      }
-
-      res.json(result);
-    });
-
     app.get("/queryterra/:product_id", async (req, res) => {
       var result = await query(req.params.product_id);
       res.json(result);
     });
 
     app.get("/", (req, res) =>
-      res.json([
-        "/querydb/<product_id>/<price_id>",
-        "/queryterra/<product_id>",
-        "/status",
-      ])
+      res.json(["/status", "/queryterra/<product_id>"])
     );
   })();
 }

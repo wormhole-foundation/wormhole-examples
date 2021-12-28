@@ -84,7 +84,7 @@ export async function worker() {
               productMap.set(pendingKey, {
                 currWorker: myWorkerIdx,
                 lastTimePublished: new Date().toISOString(),
-                numTimesPublished: 1,
+                numTimesPublished: 0,
                 lastResult: "",
               });
 

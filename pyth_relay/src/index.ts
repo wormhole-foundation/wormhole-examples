@@ -39,9 +39,10 @@ if (!listenOnly) {
 if (!listenOnly && process.env.REST_PORT) {
   var restPort = parseInt(process.env.REST_PORT);
   if (!restPort) {
-    console.error(
-      "Environment variable REST_PORT is set to [%s], which is not a valid port number.",
-      process.env.REST_PORT
+    logger.error(
+      "Environment variable REST_PORT is set to [" +
+        process.env.REST_PORT +
+        "], which is not a valid port number."
     );
     process.exit(1);
   }
