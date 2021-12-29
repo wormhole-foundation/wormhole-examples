@@ -11,22 +11,33 @@ import {
   setDefaultWasm,
 } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
+import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
+
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { connectRelayer, relay } from "./relay/main";
 
 const mutex = new Mutex();
 // Note that Map remembers the order of the keys.
-var pendingMap = new Map<string, helpers.StorePayload>(); // The key to this is helpers.storeKeyToJson(storeKey)
+
+type PendingPayload = {
+  vaa_bytes: string;
+  pa: helpers.PythPriceAttestation;
+  receiveTime: Date;
+  seqNum: number;
+};
+
+var pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id
 
 type EntryData = {
   currWorker: number;
   lastTimePublished: string;
   numTimesPublished: number;
+  lastPa: helpers.PythPriceAttestation;
   lastResult: any;
 };
 
-var productMap = new Map<string, EntryData>(); // The key to this is helpers.storeKeyToJson(storeKey)
+var productMap = new Map<string, EntryData>(); // The key to this is price_id
 
 export async function worker() {
   require("dotenv").config();
@@ -44,22 +55,26 @@ export async function worker() {
       let myWorkerIdx = workerIdx;
       let connectionData = connectRelayer(myWorkerIdx);
       while (true) {
-        var foundSomething = false;
-        var entryKey: string;
-        var entryPayload: helpers.StorePayload;
-        await mutex.runExclusive(() => {
+        await mutex.runExclusive(async () => {
+          var foundSomething = false;
+          var entryKey: string;
+          var entryPayload: PendingPayload;
+          var currObj: EntryData;
+
           // Go through the pending map and see if there's anything we can process (any product Id that's not already being processed).
           for (let [pendingKey, pendingValue] of pendingMap) {
-            let currObj = productMap.get(pendingKey);
+            var pk: string = pendingKey;
+            currObj = productMap.get(pendingKey);
             if (currObj) {
               if (currObj.currWorker === 0) {
                 currObj.currWorker = myWorkerIdx;
+                currObj.lastPa = pendingValue.pa;
                 currObj.lastTimePublished = new Date().toISOString();
                 productMap.set(pendingKey, currObj);
                 logger.debug(
                   "[" + myWorkerIdx + "] processing update %d for [%s]",
                   currObj.numTimesPublished,
-                  pendingKey
+                  pk
                 );
 
                 foundSomething = true;
@@ -81,12 +96,14 @@ export async function worker() {
                   "] this is the first time we are seeing [%s]",
                 pendingKey
               );
-              productMap.set(pendingKey, {
+              currObj = {
+                lastPa: pendingValue.pa,
                 currWorker: myWorkerIdx,
                 lastTimePublished: new Date().toISOString(),
                 numTimesPublished: 0,
                 lastResult: "",
-              });
+              };
+              productMap.set(pendingKey, currObj);
 
               foundSomething = true;
               entryKey = pendingKey;
@@ -95,41 +112,63 @@ export async function worker() {
               break;
             }
           }
-        });
 
-        if (foundSomething) {
-          logger.debug(
-            "[" + myWorkerIdx + "] processing message: [%s]",
-            entryKey
-          );
-          var relayResult: any;
-          var success = true;
-          try {
-            relayResult = await relay(entryPayload.vaa_bytes, connectionData);
-            if (relayResult.txhash) {
-              relayResult = { txhash: relayResult.txhash };
-            } else if (relayResult.message) {
-              relayResult = "message: " + relayResult.message;
-            }
-          } catch (e) {
-            logger.error("[" + myWorkerIdx + "] relay failed: %o", e);
-            relayResult = "Error: " + e.message;
-            success = false;
-          }
-          await mutex.runExclusive(() => {
+          if (foundSomething) {
             logger.debug(
-              "[" + myWorkerIdx + "] done processing message: [%s]",
+              "[" + myWorkerIdx + "] processing message: [%s]",
               entryKey
             );
-            let currObj = productMap.get(entryKey);
+            var sendTime = new Date();
+            var relayResult: any;
+            var success = true;
+            try {
+              relayResult = await relay(entryPayload.vaa_bytes, connectionData);
+              if (relayResult.txhash) {
+                relayResult = relayResult.txhash;
+              } else if (relayResult.message) {
+                relayResult = relayResult.message;
+              }
+            } catch (e) {
+              logger.error("[" + myWorkerIdx + "] relay failed: %o", e);
+              relayResult = "Error: " + e.message;
+              success = false;
+            }
+
             currObj.currWorker = 0;
             currObj.lastResult = relayResult;
             if (success) {
               currObj.numTimesPublished = currObj.numTimesPublished + 1;
             }
             productMap.set(entryKey, currObj);
-          });
-        }
+
+            var completeTime = new Date();
+
+            logger.info(
+              "complete: priceId: " +
+                entryPayload.pa.priceId +
+                ", seqNum: " +
+                entryPayload.seqNum +
+                ", price: " +
+                helpers.computePrice(
+                  entryPayload.pa.price,
+                  entryPayload.pa.exponent
+                ) +
+                ", ci: " +
+                helpers.computePrice(
+                  entryPayload.pa.confidenceInterval,
+                  entryPayload.pa.exponent
+                ) +
+                ", rcv2SendBegin: " +
+                (sendTime.getTime() - entryPayload.receiveTime.getTime()) +
+                ", rcv2SendComplete: " +
+                (completeTime.getTime() - entryPayload.receiveTime.getTime()) +
+                ", totalSends: " +
+                currObj.numTimesPublished +
+                ", result: " +
+                relayResult
+            );
+          }
+        });
 
         // add sleep
         await helpers.sleep(3000);
@@ -142,11 +181,19 @@ export async function worker() {
 }
 
 export async function postEvent(
-  storeKeyStr: string,
-  storePayload: helpers.StorePayload
+  vaaBytes: any,
+  pa: helpers.PythPriceAttestation,
+  sequence: number,
+  receiveTime: Date
 ) {
+  var event: PendingPayload = {
+    vaa_bytes: uint8ArrayToHex(vaaBytes),
+    pa: pa,
+    receiveTime: receiveTime,
+    seqNum: sequence,
+  };
   await mutex.runExclusive(() => {
-    pendingMap.set(storeKeyStr, storePayload);
+    pendingMap.set(pa.priceId, event);
   });
 }
 
@@ -161,10 +208,14 @@ export async function getStatus() {
         result = result + ", ";
       }
 
-      var storeKey = helpers.storeKeyFromJson(key);
       var item: object = {
-        product_id: storeKey.product_id,
-        price_id: storeKey.price_id,
+        product_id: value.lastPa.productId,
+        price_id: value.lastPa.priceId,
+        price: helpers.computePrice(value.lastPa.price, value.lastPa.exponent),
+        ci: helpers.computePrice(
+          value.lastPa.confidenceInterval,
+          value.lastPa.exponent
+        ),
         num_times_published: value.numTimesPublished,
         last_time_published: value.lastTimePublished,
         curr_being_processed_by: value.currWorker,

@@ -99,6 +99,7 @@ async function encodeEmitterAddress(
 }
 
 async function processVaa(vaaBytes: string, listenOnly: boolean) {
+  var receiveTime = new Date();
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // logger.debug(
@@ -111,7 +112,7 @@ async function processVaa(vaaBytes: string, listenOnly: boolean) {
   // logger.debug("listen:processVaa: parsedVAA: %o", parsedVAA);
 
   if (isPyth(parsedVAA.payload)) {
-    if (parsedVAA.payload.length !== helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
+    if (parsedVAA.payload.length < helpers.PYTH_PRICE_ATTESTATION_LENGTH) {
       logger.error(
         "dropping vaa because the payload length is wrong: length: " +
           parsedVAA.payload.length +
@@ -125,9 +126,8 @@ async function processVaa(vaaBytes: string, listenOnly: boolean) {
     var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
     // logger.debug("listen:processVaa: price attestation: %o", pa);
 
-    var storeKey = helpers.storeKeyFromPriceAttestation(pa);
-    var storeKeyStr: string = helpers.storeKeyToJson(storeKey);
-    var lastSeqNum = seqMap.get(storeKeyStr);
+    var key = pa.priceId;
+    var lastSeqNum = seqMap.get(key);
     if (lastSeqNum) {
       if (lastSeqNum >= parsedVAA.sequence) {
         logger.debug(
@@ -146,10 +146,10 @@ async function processVaa(vaaBytes: string, listenOnly: boolean) {
       }
     }
 
-    seqMap.set(storeKeyStr, parsedVAA.sequence);
+    seqMap.set(key, parsedVAA.sequence);
 
     logger.info(
-      "processing: emitter: [" +
+      "received: emitter: [" +
         parsedVAA.emitter_chain +
         ":" +
         uint8ArrayToHex(parsedVAA.emitter_address) +
@@ -169,14 +169,19 @@ async function processVaa(vaaBytes: string, listenOnly: boolean) {
         pa.confidenceInterval +
         ", timeStamp: " +
         pa.timestamp +
-        ", payload: [" +
-        uint8ArrayToHex(parsedVAA.payload) +
-        "]"
+        ", computedPrice: " +
+        helpers.computePrice(pa.price, pa.exponent) +
+        " +/-" +
+        helpers.computePrice(pa.confidenceInterval, pa.exponent)
+      // +
+      // ", payload: [" +
+      // uint8ArrayToHex(parsedVAA.payload) +
+      // "]"
     );
 
     if (!listenOnly) {
       logger.debug("posting to worker");
-      await postEvent(storeKeyStr, helpers.storePayloadFromVaaBytes(vaaBytes));
+      await postEvent(vaaBytes, pa, parsedVAA.sequence, receiveTime);
     }
   } else {
     logger.debug(

@@ -59,69 +59,6 @@ export function initLogger() {
   logger = winston.createLogger(logConfiguration);
 }
 
-export type StoreKey = {
-  product_id: string;
-  price_id: string;
-};
-
-export type StorePayload = {
-  vaa_bytes: string;
-};
-
-export type StoreWorkingPayload = {
-  // vaa_bytes is the same as in the StorePayload type.
-  vaa_bytes: string;
-  status: string;
-  timestamp: string;
-};
-
-export function initWorkingPayload(): StoreWorkingPayload {
-  return {
-    vaa_bytes: "",
-    status: "Pending",
-    timestamp: Date().toString(),
-  };
-}
-
-export function workingPayloadToJson(payload: StoreWorkingPayload): string {
-  return JSON.stringify(payload);
-}
-
-export function workingPayloadFromJson(json: string): StoreWorkingPayload {
-  return JSON.parse(json);
-}
-
-export function storeKeyFromPriceAttestation(
-  pa: PythPriceAttestation
-): StoreKey {
-  return {
-    product_id: pa.productId,
-    price_id: pa.priceId,
-  };
-}
-
-export function storeKeyToJson(storeKey: StoreKey): string {
-  return JSON.stringify(storeKey);
-}
-
-export function storeKeyFromJson(json: string): StoreKey {
-  return JSON.parse(json);
-}
-
-export function storePayloadFromVaaBytes(vaaBytes: any): StorePayload {
-  return {
-    vaa_bytes: uint8ArrayToHex(vaaBytes),
-  };
-}
-
-export function storePayloadToJson(storePayload: StorePayload): string {
-  return JSON.stringify(storePayload);
-}
-
-export function storePayloadFromJson(json: string): StorePayload {
-  return JSON.parse(json);
-}
-
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -233,4 +170,8 @@ export function parsePythPriceAttestation(arr: Buffer): PythPriceAttestation {
     corpAct: arr.readUInt32BE(141),
     timestamp: arr.readBigUInt64BE(142),
   };
+}
+
+export function computePrice(rawPrice: BigInt, expo: number): number {
+  return Number(rawPrice) * 10 ** expo;
 }
