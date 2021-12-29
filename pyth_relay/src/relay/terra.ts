@@ -10,6 +10,7 @@ export type TerraConnectionData = {
   terraChainId: string;
   terraName: string;
   walletPrivateKey: string;
+  coin: string;
   contractAddress: string;
   lcdConfig: LCDClientConfig;
 };
@@ -35,6 +36,11 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
     process.exit(1);
   }
 
+  if (!process.env.TERRA_COIN) {
+    logger.error("Missing environment variable TERRA_COIN");
+    process.exit(1);
+  }
+
   if (!process.env.TERRA_PYTH_CONTRACT_ADDRESS) {
     logger.error("Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS");
     process.exit(1);
@@ -49,6 +55,8 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
       process.env.TERRA_CHAIN_ID +
       "], terraName: [" +
       process.env.TERRA_NAME +
+      "], coin: [" +
+      process.env.TERRA_COIN +
       "], contractAddress: [" +
       process.env.TERRA_PYTH_CONTRACT_ADDRESS +
       "]"
@@ -65,6 +73,7 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
     terraChainId: process.env.TERRA_CHAIN_ID,
     terraName: process.env.TERRA_NAME,
     walletPrivateKey: process.env.TERRA_PRIVATE_KEY,
+    coin: process.env.TERRA_COIN,
     contractAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
     lcdConfig: lcdConfig,
   };
@@ -106,7 +115,7 @@ export async function relayTerra(
     [msg],
     {
       //TODO figure out type mismatch
-      feeDenoms: ["uluna"],
+      feeDenoms: [connectionData.coin],
       gasPrices,
     }
   );
@@ -114,8 +123,8 @@ export async function relayTerra(
   logger.debug("TIME: creating transaction,", new Date().toISOString());
   const tx = await wallet.createAndSignTx({
     msgs: [msg],
-    memo: "Relayer - Complete Transfer",
-    feeDenoms: ["uluna"],
+    memo: "Pyth Price Attestation",
+    feeDenoms: [connectionData.coin],
     gasPrices,
     fee: feeEstimate,
   });
@@ -160,4 +169,39 @@ export async function queryTerra(
 
   logger.debug("queryTerra: query returned: %o", query_result);
   return query_result;
+}
+
+export async function queryBalanceOnTerra(connectionData: TerraConnectionData) {
+  const lcdClient = new LCDClient(connectionData.lcdConfig);
+
+  const mk = new MnemonicKey({
+    mnemonic: connectionData.walletPrivateKey,
+  });
+
+  const wallet = lcdClient.wallet(mk);
+
+  var balance: number = NaN;
+  try {
+    var coins = await lcdClient.bank.balance(wallet.key.accAddress);
+    logger.debug("wallet query returned: %o", coins);
+    if (coins) {
+      var coin = coins.get(connectionData.coin);
+      if (coin) {
+        balance = parseInt(coin.toData().amount);
+      } else {
+        logger.error(
+          "failed to query coin balance, coin [" +
+            connectionData.coin +
+            "] is not in the wallet, coins: %o",
+          coins
+        );
+      }
+    } else {
+      logger.error("failed to query coin balance!");
+    }
+  } catch (e) {
+    logger.error("failed to query coin balance: %o", e);
+  }
+
+  return balance;
 }
