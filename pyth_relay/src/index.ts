@@ -5,6 +5,7 @@ import { worker } from "./worker";
 import { rest } from "./rest";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
+import { PromHelper } from "./promHelpers";
 
 var configFile: string = ".env";
 if (process.env.PYTH_RELAY_CONFIG) {
@@ -27,12 +28,15 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
   }
 }
 
+// Start the Prometheus client with the app name and http port
+const promClient = new PromHelper("pyth_relay", 8081);
+
 // Start the spy listener to listen to the guardians.
 listen(listenOnly);
 
 // Start the spy worker to relay messages.
 if (!listenOnly) {
-  worker();
+  worker(promClient);
 }
 
 // Start the REST server, if configured.

@@ -16,6 +16,7 @@ import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { connectRelayer, relay } from "./relay/main";
+import { PromHelper } from "./promHelpers";
 
 const mutex = new Mutex();
 // Note that Map remembers the order of the keys.
@@ -39,7 +40,7 @@ type EntryData = {
 
 var productMap = new Map<string, EntryData>(); // The key to this is price_id
 
-export async function worker() {
+export async function worker(metrics: PromHelper) {
   require("dotenv").config();
   var numWorkers = 1;
   if (process.env.NUM_WORKERS) {
@@ -138,10 +139,14 @@ export async function worker() {
             currObj.lastResult = relayResult;
             if (success) {
               currObj.numTimesPublished = currObj.numTimesPublished + 1;
+              metrics.incSuccesses();
+            } else {
+              metrics.incFailures();
             }
             productMap.set(entryKey, currObj);
 
             var completeTime = new Date();
+            metrics.setSeqNum(entryPayload.seqNum);
 
             logger.info(
               "complete: priceId: " +
