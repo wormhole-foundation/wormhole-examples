@@ -1,5 +1,6 @@
 import {
   connectToTerra,
+  queryBalanceOnTerra,
   queryTerra,
   relayTerra,
   TerraConnectionData,
@@ -34,4 +35,16 @@ export async function query(productIdStr: string): Promise<any> {
   }
 
   return result;
+}
+
+export async function queryBalance(): Promise<number> {
+  var balance: number = NaN;
+  try {
+    var terraData = connectToTerra(0);
+    balance = await queryBalanceOnTerra(terraData);
+  } catch (e) {
+    logger.error("balance query failed: %o", e);
+  }
+
+  return balance;
 }

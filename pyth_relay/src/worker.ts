@@ -16,6 +16,7 @@ import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { connectRelayer, relay } from "./relay/main";
+import * as main from "./relay/main";
 import { PromHelper } from "./promHelpers";
 
 const mutex = new Mutex();
@@ -55,6 +56,12 @@ export async function worker(metrics: PromHelper) {
     (async () => {
       let myWorkerIdx = workerIdx;
       let connectionData = connectRelayer(myWorkerIdx);
+      if (workerIdx === 1) {
+        await mutex.runExclusive(async () => {
+          var balance = await main.queryBalance();
+          logger.info("initial wallet balance is " + balance);
+        });
+      }
       while (true) {
         await mutex.runExclusive(async () => {
           var foundSomething = false;
