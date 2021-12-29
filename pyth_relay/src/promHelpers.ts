@@ -10,6 +10,7 @@ import client = require("prom-client");
 export class PromHelper {
   private register = new client.Registry();
   private label: string;
+
   // Actual metrics
   private seqNumGauge = new client.Gauge({
     name: "seqNum",
@@ -23,6 +24,13 @@ export class PromHelper {
     name: "failures",
     help: "number of failed relays",
   });
+  private completeTime = new client.Histogram({
+    name: "complete_time",
+    help: "Time is took to complete transfer",
+    buckets: [200, 400, 600, 800, 1000, 2000],
+  });
+  // End metrics
+
   private server = http.createServer(async (req, res) => {
     // Retrieve route from request object
     const route = url.parse(req.url).pathname;
@@ -42,6 +50,7 @@ export class PromHelper {
     this.register.registerMetric(this.seqNumGauge);
     this.register.registerMetric(this.successCounter);
     this.register.registerMetric(this.failureCounter);
+    this.register.registerMetric(this.completeTime);
     this.server.listen(port);
   }
 
@@ -54,5 +63,8 @@ export class PromHelper {
   }
   incFailures() {
     this.failureCounter.inc();
+  }
+  addCompleteTime(val) {
+    this.completeTime.observe(val);
   }
 }

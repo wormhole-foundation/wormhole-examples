@@ -147,6 +147,9 @@ export async function worker(metrics: PromHelper) {
 
             var completeTime = new Date();
             metrics.setSeqNum(entryPayload.seqNum);
+            metrics.addCompleteTime(
+              completeTime.getTime() - entryPayload.receiveTime.getTime()
+            );
 
             logger.info(
               "complete: priceId: " +
