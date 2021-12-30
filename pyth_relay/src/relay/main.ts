@@ -12,8 +12,8 @@ export type ConnectionData = {
 
 import { logger } from "../helpers";
 
-export function connectRelayer(workerIdx: number): ConnectionData {
-  var td = connectToTerra(workerIdx);
+export function connectRelayer(): ConnectionData {
+  var td = connectToTerra();
   return { terraData: td };
 }
 
@@ -24,11 +24,11 @@ export async function relay(
   return await relayTerra(connectionData.terraData, signedVAA);
 }
 
-export async function query(productIdStr: string): Promise<any> {
+export async function query(priceIdStr: string): Promise<any> {
   var result: any;
   try {
-    var terraData = connectToTerra(0);
-    result = await queryTerra(terraData, productIdStr);
+    var terraData = connectToTerra();
+    result = await queryTerra(terraData, priceIdStr);
   } catch (e) {
     logger.error("query failed: %o", e);
     result = "Error: " + e.message;
@@ -37,11 +37,12 @@ export async function query(productIdStr: string): Promise<any> {
   return result;
 }
 
-export async function queryBalance(): Promise<number> {
+export async function queryBalance(
+  connectionData: ConnectionData
+): Promise<number> {
   var balance: number = NaN;
   try {
-    var terraData = connectToTerra(0);
-    balance = await queryBalanceOnTerra(terraData);
+    balance = await queryBalanceOnTerra(connectionData.terraData);
   } catch (e) {
     logger.error("balance query failed: %o", e);
   }

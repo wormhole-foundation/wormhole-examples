@@ -3,8 +3,7 @@ import axios from "axios";
 import { ChainId } from "@certusone/wormhole-sdk";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
-import { getStatus } from "./worker";
-import { query } from "./relay/main";
+import { getStatus, getPriceData } from "./worker";
 
 export async function rest(restPort: number) {
   const RELAYER_URL = "http://localhost:3001/relay";
@@ -24,13 +23,11 @@ export async function rest(restPort: number) {
       res.json(result);
     });
 
-    app.get("/queryterra/:product_id", async (req, res) => {
-      var result = await query(req.params.product_id);
+    app.get("/queryterra/:price_id", async (req, res) => {
+      var result = await getPriceData(req.params.price_id);
       res.json(result);
     });
 
-    app.get("/", (req, res) =>
-      res.json(["/status", "/queryterra/<product_id>"])
-    );
+    app.get("/", (req, res) => res.json(["/status", "/queryterra/<price_id>"]));
   })();
 }

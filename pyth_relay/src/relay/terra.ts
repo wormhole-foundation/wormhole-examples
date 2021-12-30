@@ -15,7 +15,7 @@ export type TerraConnectionData = {
   lcdConfig: LCDClientConfig;
 };
 
-export function connectToTerra(workerIdx: number): TerraConnectionData {
+export function connectToTerra(): TerraConnectionData {
   if (!process.env.TERRA_NODE_URL) {
     logger.error("Missing environment variable TERRA_NODE_URL");
     process.exit(1);
@@ -47,9 +47,7 @@ export function connectToTerra(workerIdx: number): TerraConnectionData {
   }
 
   logger.info(
-    "[" +
-      workerIdx +
-      "] Terra parameters: url: [" +
+    "Terra connection parameters: url: [" +
       process.env.TERRA_NODE_URL +
       "], terraChainId: [" +
       process.env.TERRA_CHAIN_ID +
@@ -138,15 +136,15 @@ export async function relayTerra(
 
 export async function queryTerra(
   connectionData: TerraConnectionData,
-  productIdStr: string
+  priceIdStr: string
 ) {
-  const encodedProductId = fromUint8Array(hexToUint8Array(productIdStr));
+  const encodedPriceId = fromUint8Array(hexToUint8Array(priceIdStr));
 
   logger.info(
-    "Querying terra for price info for productId [" +
-      productIdStr +
+    "Querying terra for price info for priceId [" +
+      priceIdStr +
       "], encoded as [" +
-      encodedProductId +
+      encodedPriceId +
       "]"
   );
 
@@ -162,7 +160,7 @@ export async function queryTerra(
     connectionData.contractAddress,
     {
       price_info: {
-        product_id: encodedProductId,
+        price_id: encodedPriceId,
       },
     }
   );
