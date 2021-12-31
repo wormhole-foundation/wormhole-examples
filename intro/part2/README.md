@@ -17,22 +17,25 @@ Run the UI
 
 ```bash
 cd ui
-npm install notistack  // Only once.
 npm ci
 npm run typechain
 npm start
 ```
 
 # Tech
+
 ### Chain side
+
 The Ethereum smart contract is in
 `ethereum/contracts/Messenger.sol`
 Added function: `receiveBytes`. This function receives VAA from UI and verifies it. There are three checks:
+
 1. Verify Wormhole signatures. This is done via Wormhole SDK `parseAndVerifyVM` method.
 2. Verify that VAA was emitted from one of known contract addresses. (Messenger on one of chains in this case). We register all addresses with each Smart contract in `npm run register` script, after all contracts have been migrated.
 3. Check if this VAA was already processed. This is done by checking if VAA hash has been already processed.
 
 ### Client side
+
 Calling code is in
 `ui/src/App.tsx`
 `processClickHandler`

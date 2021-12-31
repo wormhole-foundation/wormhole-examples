@@ -65,6 +65,7 @@ services:
     command:
       - npx
       - ganache-cli
+      - -e 10000
       - --deterministic
       - --time="1970-01-01T00:00:00+00:00"
       - --host=0.0.0.0
@@ -97,6 +98,7 @@ services:
     command:
       - npx
       - ganache-cli
+      - -e 10000
       - --deterministic
       - --time="1970-01-01T00:00:00+00:00"
       - --host=0.0.0.0
@@ -122,3 +124,51 @@ services:
       - "npx truffle exec mine.js --network development2"
     depends_on:
       - eth2
+  solana-devnet:
+    build:
+      context: .
+      dockerfile: Dockerfile.solana
+    profiles:
+      - solana
+    ports:
+      - "1027:1027/udp"
+      - "8899:8899"
+      - "8900:8900"
+      - "9900:9900"
+    command:
+      - /root/.local/share/solana/install/active_release/bin/solana-test-validator
+      - --bpf-program
+      - Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o
+      - /opt/solana/deps/bridge.so
+      - --bpf-program
+      - B6RHG3mfcckmrYN1UhmJzyS1XX3fZKbkeUcpJe9Sy3FE
+      - /opt/solana/deps/token_bridge.so
+      - --bpf-program
+      - NFTWqJR8YnRVqPDvTJrYuLrQDitTG5AScqbeghi4zSA
+      - /opt/solana/deps/nft_bridge.so
+      - --bpf-program
+      - CP1co2QMMoDPbsmV7PGcUTLFwyhgCgTXt25gLQ5LewE1
+      - /opt/solana/deps/cpi_poster.so
+      - --bpf-program
+      - metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s
+      - /opt/solana/deps/spl_token_metadata.so
+      - --bpf-program
+      - gMYYig2utAxVoXnM9UhtTWrt8e7x2SVBZqsWZJeT5Gw # Derived from pyth_program.json
+      - /opt/solana/deps/pyth_oracle.so
+      - --bpf-program
+      - P2WH424242424242424242424242424242424242424
+      - /opt/solana/deps/pyth2wormhole.so
+      - --bpf-program
+      - Ex9bCdVMSfx7EzB3pgSi2R4UHwJAXvTw18rBQm5YQ8gK
+      - /opt/solana/deps/wormhole_migration.so
+      - --log
+  solana-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    profiles:
+      - solana
+    command:
+      - /bin/sh
+      - -c
+      - "wget https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh && chmod +x wait-for-it.sh && ./wait-for-it.sh -t 0 solana-devnet:8899 -- /usr/src/solana/devnet_setup.sh"
