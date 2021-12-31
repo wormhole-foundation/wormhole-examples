@@ -11,6 +11,7 @@ import { PromHelper } from "./promHelpers";
 
 const mutex = new Mutex();
 var condition = new CondVar();
+var conditionTimeout = 20000;
 
 type PendingPayload = {
   vaa_bytes: string;
@@ -19,7 +20,7 @@ type PendingPayload = {
   seqNum: number;
 };
 
-var pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id. Note that Map remembers the order of the keys.
+var pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id. Note that Map maintains insertion order, not key order.
 
 type ProductData = {
   busy: boolean;
@@ -33,6 +34,8 @@ var productMap = new Map<string, ProductData>(); // The key to this is price_id
 
 var connectionData: main.ConnectionData;
 var metrics: PromHelper;
+var nextBalanceQueryTimeAsMs: number = 0;
+var balanceQueryInterval = 0;
 
 export async function worker(met: PromHelper) {
   setDefaultWasm("node");
@@ -42,10 +45,26 @@ export async function worker(met: PromHelper) {
     connectionData = main.connectRelayer();
     metrics = met;
 
-    var balance = await main.queryBalance(connectionData);
-    logger.info("initial wallet balance is " + balance);
+    if (process.env.BAL_QUERY_INTERVAL) {
+      balanceQueryInterval = parseInt(process.env.BAL_QUERY_INTERVAL);
+    }
 
-    await condition.wait(20000, callBack);
+    var balance = await main.queryBalance(connectionData);
+    if (balanceQueryInterval !== 0) {
+      logger.info(
+        "initial wallet balance is " +
+          balance +
+          ", will query every " +
+          balanceQueryInterval +
+          " milliseconds."
+      );
+
+      nextBalanceQueryTimeAsMs = new Date().getTime() + balanceQueryInterval;
+    } else {
+      logger.info("initial wallet balance is " + balance);
+    }
+
+    await condition.wait(computeTimeout(), callBack);
   });
 }
 
@@ -60,8 +79,21 @@ async function callBack(err: any, result: any) {
 
     logger.debug("in callback, rearming the condition.");
     condition = new CondVar();
-    await condition.wait(20000, callBack);
+    await condition.wait(computeTimeout(), callBack);
   });
+}
+
+function computeTimeout(): number {
+  if (balanceQueryInterval != 0) {
+    var now = new Date().getTime();
+    if (now < nextBalanceQueryTimeAsMs) {
+      return nextBalanceQueryTimeAsMs - now;
+    }
+
+    return 0;
+  }
+
+  return conditionTimeout;
 }
 
 async function processEventsAlreadyLocked() {
@@ -177,6 +209,13 @@ async function processEventsAlreadyLocked() {
       );
     }
   } while (foundSomething);
+
+  var now = new Date();
+  if (balanceQueryInterval > 0 && now.getTime() >= nextBalanceQueryTimeAsMs) {
+    var balance = await main.queryBalance(connectionData);
+    logger.info("wallet balance: " + balance);
+    nextBalanceQueryTimeAsMs = now.getTime() + balanceQueryInterval;
+  }
 }
 
 export async function postEvent(

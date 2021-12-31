@@ -180,6 +180,7 @@ export async function queryBalanceOnTerra(connectionData: TerraConnectionData) {
 
   var balance: number = NaN;
   try {
+    logger.debug("querying wallet balance");
     var coins = await lcdClient.bank.balance(wallet.key.accAddress);
     logger.debug("wallet query returned: %o", coins);
     if (coins) {

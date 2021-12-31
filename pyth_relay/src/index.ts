@@ -28,28 +28,34 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
   }
 }
 
-// Start the Prometheus client with the app name and http port
-const promClient = new PromHelper("pyth_relay", 8081);
-
 // Start the spy listener to listen to the guardians.
 listen(listenOnly);
 
-// Start the spy worker to relay messages.
 if (!listenOnly) {
-  worker(promClient);
-}
-
-// Start the REST server, if configured.
-if (!listenOnly && process.env.REST_PORT) {
-  var restPort = parseInt(process.env.REST_PORT);
-  if (!restPort) {
-    logger.error(
-      "Environment variable REST_PORT is set to [" +
-        process.env.REST_PORT +
-        "], which is not a valid port number."
-    );
-    process.exit(1);
+  // Start the Prometheus client with the app name and http port
+  var promPort = 8081;
+  if (process.env.PROM_PORT) {
+    promPort = parseInt(process.env.PROM_PORT);
   }
 
-  rest(restPort);
+  logger.info("prometheus client listening on port " + promPort);
+  const promClient = new PromHelper("pyth_relay", promPort);
+
+  // Start the spy worker to relay messages.
+  worker(promClient);
+
+  // Start the REST server, if configured.
+  if (process.env.REST_PORT) {
+    var restPort = parseInt(process.env.REST_PORT);
+    if (!restPort) {
+      logger.error(
+        "Environment variable REST_PORT is set to [" +
+          process.env.REST_PORT +
+          "], which is not a valid port number."
+      );
+      process.exit(1);
+    }
+
+    rest(restPort);
+  }
 }

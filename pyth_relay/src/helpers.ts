@@ -1,8 +1,4 @@
-import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
-// import { logger } from "ethers";
-
-export const INCOMING = 0;
-export const WORKING = 1;
+////////////////////////////////// Start of Logger Stuff //////////////////////////////////////
 
 export var logger;
 
@@ -57,10 +53,6 @@ export function initLogger() {
   };
 
   logger = winston.createLogger(logConfiguration);
-}
-
-export function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 ////////////////////////////////// Start of PYTH Stuff //////////////////////////////////////
@@ -170,6 +162,12 @@ export function parsePythPriceAttestation(arr: Buffer): PythPriceAttestation {
     corpAct: arr.readUInt32BE(141),
     timestamp: arr.readBigUInt64BE(142),
   };
+}
+
+////////////////////////////////// Start of Other Helpful Stuff //////////////////////////////////////
+
+export function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function computePrice(rawPrice: BigInt, expo: number): number {
