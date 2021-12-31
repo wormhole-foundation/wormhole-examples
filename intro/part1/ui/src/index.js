@@ -3,8 +3,9 @@ import { createTheme, CssBaseline, responsiveFontSizes } from "@mui/material";
 import React from "react";
 import ReactDOM from "react-dom";
 import App from "./App";
-import { EthereumProviderProvider } from "./EthereumProviderContext";
-import { SnackbarProvider } from 'notistack';
+import { EthereumProviderProvider } from "./contexts/EthereumProviderContext";
+import { SolanaWalletProvider } from "./contexts/SolanaWalletContext";
+import { SnackbarProvider } from "notistack";
 
 const darkTheme = createTheme({
   palette: {
@@ -18,9 +19,11 @@ ReactDOM.render(
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <SnackbarProvider maxSnack={3}>
-        <EthereumProviderProvider>
-          <App />
-        </EthereumProviderProvider>
+        <SolanaWalletProvider>
+          <EthereumProviderProvider>
+            <App />
+          </EthereumProviderProvider>
+        </SolanaWalletProvider>
       </SnackbarProvider>
     </ThemeProvider>
   </React.StrictMode>,

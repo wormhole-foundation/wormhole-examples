@@ -26,3 +26,4 @@ yarn-error.log*
 /contracts
 /src/contract-addresses
 /src/ethers-contracts
+/src/solana
