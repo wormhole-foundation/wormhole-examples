@@ -39,6 +39,7 @@
     "express": "^4.17.1",
     "prom-client": "^14.0.1",
     "redis": "^4.0.0",
+    "whatwg-url": "^11.0.0",
     "winston": "^3.3.3"
   },
   "directories": {
