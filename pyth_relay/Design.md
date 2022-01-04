@@ -64,6 +64,8 @@ All the above metrics can be viewed at http://localhost:8081/metrics
 
 <p>
 The port 8081 is the default.  The port can be specified by the `PROM_PORT` tunable in the env file.
+<p>
+This file contains a class named `PromHelper`.  It is an encapsulation of the Prometheus API.
 
 ## helpers.ts
 
