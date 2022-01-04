@@ -29,6 +29,10 @@ export class PromHelper {
     help: "Time is took to complete transfer",
     buckets: [200, 400, 600, 800, 1000, 2000],
   });
+  private walletBalance = new client.Gauge({
+    name: "walletBalance",
+    help: "The wallet balance",
+  });
   // End metrics
 
   private server = http.createServer(async (req, res) => {
@@ -47,10 +51,15 @@ export class PromHelper {
     this.register.setDefaultLabels({
       app: name,
     });
+
+    // Register each metric
     this.register.registerMetric(this.seqNumGauge);
     this.register.registerMetric(this.successCounter);
     this.register.registerMetric(this.failureCounter);
     this.register.registerMetric(this.completeTime);
+    this.register.registerMetric(this.walletBalance);
+    // End registering metric
+
     this.server.listen(port);
   }
 
@@ -66,5 +75,8 @@ export class PromHelper {
   }
   addCompleteTime(val) {
     this.completeTime.observe(val);
+  }
+  setWalletBalance(bal) {
+    this.walletBalance.set(bal);
   }
 }

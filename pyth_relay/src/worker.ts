@@ -58,10 +58,12 @@ export async function worker(met: PromHelper) {
           balanceQueryInterval +
           " milliseconds."
       );
+      metrics.setWalletBalance(balance);
 
       nextBalanceQueryTimeAsMs = new Date().getTime() + balanceQueryInterval;
     } else {
       logger.info("initial wallet balance is " + balance);
+      metrics.setWalletBalance(balance);
     }
 
     await condition.wait(computeTimeout(), callBack);
