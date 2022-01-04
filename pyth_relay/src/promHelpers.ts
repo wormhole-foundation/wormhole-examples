@@ -33,6 +33,10 @@ export class PromHelper {
     name: "walletBalance",
     help: "The wallet balance",
   });
+  private listenCounter = new client.Counter({
+    name: "VAAs_received",
+    help: "number of Pyth VAAs received",
+  });
   // End metrics
 
   private server = http.createServer(async (req, res) => {
@@ -58,6 +62,7 @@ export class PromHelper {
     this.register.registerMetric(this.failureCounter);
     this.register.registerMetric(this.completeTime);
     this.register.registerMetric(this.walletBalance);
+    this.register.registerMetric(this.listenCounter);
     // End registering metric
 
     this.server.listen(port);
@@ -78,5 +83,8 @@ export class PromHelper {
   }
   setWalletBalance(bal) {
     this.walletBalance.set(bal);
+  }
+  incIncoming() {
+    this.listenCounter.inc();
   }
 }

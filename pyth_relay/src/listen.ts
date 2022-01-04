@@ -19,10 +19,11 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { postEvent } from "./worker";
+import { PromHelper } from "./promHelpers";
 
 var seqMap = new Map<string, number>();
 
-export async function listen(listenOnly: boolean) {
+export async function listen(listenOnly: boolean, met: PromHelper) {
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
     logger.error("Missing environment variable SPY_SERVICE_HOST");
@@ -76,7 +77,7 @@ export async function listen(listenOnly: boolean) {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes, listenOnly);
+      processVaa(vaaBytes, listenOnly, met);
     });
 
     logger.info("pyth_relay listening for messages");
@@ -98,7 +99,11 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes: string, listenOnly: boolean) {
+async function processVaa(
+  vaaBytes: string,
+  listenOnly: boolean,
+  met: PromHelper
+) {
   var receiveTime = new Date();
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
@@ -179,6 +184,7 @@ async function processVaa(vaaBytes: string, listenOnly: boolean) {
       // "]"
     );
 
+    met.incIncoming();
     if (!listenOnly) {
       logger.debug("posting to worker");
       await postEvent(vaaBytes, pa, parsedVAA.sequence, receiveTime);

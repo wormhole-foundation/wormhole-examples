@@ -27,20 +27,18 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
     listenOnly = true;
   }
 }
+// Start the Prometheus client with the app name and http port
+var promPort = 8081;
+if (process.env.PROM_PORT) {
+  promPort = parseInt(process.env.PROM_PORT);
+}
+logger.info("prometheus client listening on port " + promPort);
+const promClient = new PromHelper("pyth_relay", promPort);
 
 // Start the spy listener to listen to the guardians.
-listen(listenOnly);
+listen(listenOnly, promClient);
 
 if (!listenOnly) {
-  // Start the Prometheus client with the app name and http port
-  var promPort = 8081;
-  if (process.env.PROM_PORT) {
-    promPort = parseInt(process.env.PROM_PORT);
-  }
-
-  logger.info("prometheus client listening on port " + promPort);
-  const promClient = new PromHelper("pyth_relay", promPort);
-
   // Start the spy worker to relay messages.
   worker(promClient);
 
