@@ -6,7 +6,8 @@
     "moduleResolution": "node",
     "lib": ["es2019"],
     "skipLibCheck": true,
-    "allowJs": true
+    "allowJs": true,
+    "alwaysStrict": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "**/__tests__/*"]
