@@ -1,6 +1,6 @@
 import http = require("http");
-import url = require("url");
-//var URL = require("url").URL;
+// import url = require("url");
+// var URL = require("url").URL;
 import client = require("prom-client");
 
 // NOTE:  To create a new metric:
@@ -41,13 +41,7 @@ export class PromHelper {
   // End metrics
 
   private server = http.createServer(async (req, res) => {
-    // Retrieve route from request object
-    const route = url.parse(req.url).pathname;
-    //    console.log("URL received: ", req.url);
-    //    const urlFromReq = new URL(req.url);
-    //    const route = urlFromReq.path;
-
-    if (route === "/metrics") {
+    if (req.url === "/metrics") {
       // Return all metrics the Prometheus exposition format
       res.setHeader("Content-Type", this.register.contentType);
       res.end(await this.register.metrics());
