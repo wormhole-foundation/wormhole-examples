@@ -1,5 +1,6 @@
 import http = require("http");
-import parseURL = require("whatwg-url");
+import url = require("url");
+//var URL = require("url").URL;
 import client = require("prom-client");
 
 // NOTE:  To create a new metric:
@@ -41,7 +42,10 @@ export class PromHelper {
 
   private server = http.createServer(async (req, res) => {
     // Retrieve route from request object
-    const route = parseURL.pathname;
+    const route = url.parse(req.url).pathname;
+    //    console.log("URL received: ", req.url);
+    //    const urlFromReq = new URL(req.url);
+    //    const route = urlFromReq.path;
 
     if (route === "/metrics") {
       // Return all metrics the Prometheus exposition format
