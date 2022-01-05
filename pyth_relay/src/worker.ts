@@ -23,11 +23,16 @@ type PendingPayload = {
 var pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id. Note that Map maintains insertion order, not key order.
 
 type ProductData = {
-  busy: boolean;
+  key: string;
   lastTimePublished: Date;
   numTimesPublished: number;
   lastPa: helpers.PythPriceAttestation;
   lastResult: any;
+};
+
+type CurrentEntry = {
+  pendingEntry: PendingPayload;
+  currObj: ProductData;
 };
 
 var productMap = new Map<string, ProductData>(); // The key to this is price_id
@@ -76,6 +81,8 @@ async function callBack(err: any, result: any) {
     err,
     result
   );
+  // await helpers.sleep(10000);
+  // logger.debug("done with long sleep");
   await mutex.runExclusive(async () => {
     await processEventsAlreadyLocked();
 
@@ -99,123 +106,122 @@ function computeTimeout(): number {
 }
 
 async function processEventsAlreadyLocked() {
-  var foundSomething: boolean;
-  do {
-    foundSomething = false;
-    var entryKey: string;
-    var entryPayload: PendingPayload;
-    var currObj: ProductData;
+  var currObjs = new Array<CurrentEntry>();
+  var currEntries = new Array<PendingPayload>();
+  var messages = new Array<string>();
 
-    // Go through the pending map and see if there's anything we can process (any product Id that's not already being processed).
-    for (let [pendingKey, pendingValue] of pendingMap) {
-      var pk: string = pendingKey;
-      currObj = productMap.get(pendingKey);
-      if (currObj) {
-        if (!currObj.busy) {
-          currObj.busy = true;
-          currObj.lastPa = pendingValue.pa;
-          currObj.lastTimePublished = new Date();
-          productMap.set(pendingKey, currObj);
-          logger.debug(
-            "processing update %d for [%s]",
-            currObj.numTimesPublished,
-            pk
-          );
+  for (let [pk, pendingValue] of pendingMap) {
+    logger.debug("processing event with key [" + pk + "]");
+    var pendingKey = pendingValue.pa.priceId;
+    var currObj = productMap.get(pendingKey);
+    if (currObj) {
+      currObj.lastPa = pendingValue.pa;
+      currObj.lastTimePublished = new Date();
+      productMap.set(pendingKey, currObj);
+      logger.debug(
+        "processing update " +
+          currObj.numTimesPublished +
+          " for [" +
+          pendingKey +
+          "], seq num " +
+          pendingValue.seqNum
+      );
 
-          foundSomething = true;
-          entryKey = pendingKey;
-          entryPayload = pendingValue;
-          pendingMap.delete(pendingKey);
-          break;
-        } else {
-          logger.error(
-            "entry [%s] is already busy, this should not happen!",
-            pendingKey
-          );
-        }
-      } else {
-        logger.debug("this is the first time we are seeing [%s]", pendingKey);
-        currObj = {
-          lastPa: pendingValue.pa,
-          busy: true,
-          lastTimePublished: new Date(),
-          numTimesPublished: 0,
-          lastResult: "",
-        };
-        productMap.set(pendingKey, currObj);
+      currObjs.push({ pendingEntry: pendingValue, currObj: currObj });
+      messages.push(pendingValue.vaa_bytes);
+      pendingMap.delete(pendingKey);
+    } else {
+      logger.debug(
+        "processing first update for [" +
+          pendingKey +
+          "], seq num " +
+          pendingValue.seqNum
+      );
+      currObj = {
+        key: pendingKey,
+        lastPa: pendingValue.pa,
+        lastTimePublished: new Date(),
+        numTimesPublished: 0,
+        lastResult: "",
+      };
+      productMap.set(pendingKey, currObj);
 
-        foundSomething = true;
-        entryKey = pendingKey;
-        entryPayload = pendingValue;
-        pendingMap.delete(pendingKey);
-        break;
+      currObjs.push({ pendingEntry: pendingValue, currObj: currObj });
+      messages.push(pendingValue.vaa_bytes);
+      pendingMap.delete(pendingKey);
+    }
+  }
+
+  pendingMap.clear();
+
+  if (currObjs.length != 0) {
+    var sendTime = new Date();
+    var relayResult: any;
+    var success = true;
+    try {
+      relayResult = await main.relay(messages, connectionData);
+      if (relayResult.txhash) {
+        relayResult = relayResult.txhash;
+      } else if (relayResult.message) {
+        relayResult = relayResult.message;
       }
+    } catch (e) {
+      logger.error("relay failed: %o", e);
+      relayResult = "Error: " + e.message;
+      success = false;
     }
 
-    if (foundSomething) {
-      var sendTime = new Date();
-      var relayResult: any;
-      var success = true;
-      try {
-        relayResult = await main.relay(entryPayload.vaa_bytes, connectionData);
-        if (relayResult.txhash) {
-          relayResult = relayResult.txhash;
-        } else if (relayResult.message) {
-          relayResult = relayResult.message;
-        }
-      } catch (e) {
-        logger.error("relay failed: %o", e);
-        relayResult = "Error: " + e.message;
-        success = false;
-      }
-
-      currObj.busy = false;
+    for (var idx = 0; idx < currObjs.length; ++idx) {
+      var currObj = currObjs[idx].currObj;
+      var currEntry = currObjs[idx].pendingEntry;
       currObj.lastResult = relayResult;
+      currObj.numTimesPublished = currObj.numTimesPublished + 1;
       if (success) {
-        currObj.numTimesPublished = currObj.numTimesPublished + 1;
         metrics.incSuccesses();
       } else {
         metrics.incFailures();
       }
-      productMap.set(entryKey, currObj);
+      productMap.set(currObj.key, currObj);
 
       var completeTime = new Date();
-      metrics.setSeqNum(entryPayload.seqNum);
+      metrics.setSeqNum(currEntry.seqNum);
       metrics.addCompleteTime(
-        completeTime.getTime() - entryPayload.receiveTime.getTime()
+        completeTime.getTime() - currEntry.receiveTime.getTime()
       );
 
       logger.info(
         "complete: priceId: " +
-          entryPayload.pa.priceId +
+          currEntry.pa.priceId +
           ", seqNum: " +
-          entryPayload.seqNum +
+          currEntry.seqNum +
           ", price: " +
-          helpers.computePrice(
-            entryPayload.pa.price,
-            entryPayload.pa.exponent
-          ) +
+          helpers.computePrice(currEntry.pa.price, currEntry.pa.exponent) +
           ", ci: " +
           helpers.computePrice(
-            entryPayload.pa.confidenceInterval,
-            entryPayload.pa.exponent
+            currEntry.pa.confidenceInterval,
+            currEntry.pa.exponent
           ) +
           ", rcv2SendBegin: " +
-          (sendTime.getTime() - entryPayload.receiveTime.getTime()) +
+          (sendTime.getTime() - currEntry.receiveTime.getTime()) +
           ", rcv2SendComplete: " +
-          (completeTime.getTime() - entryPayload.receiveTime.getTime()) +
+          (completeTime.getTime() - currEntry.receiveTime.getTime()) +
           ", totalSends: " +
           currObj.numTimesPublished +
           ", result: " +
           relayResult
       );
     }
-  } while (foundSomething);
+  }
 
   var now = new Date();
   if (balanceQueryInterval > 0 && now.getTime() >= nextBalanceQueryTimeAsMs) {
     var balance = await main.queryBalance(connectionData);
-    logger.info("wallet balance: " + balance);
+    if (isNaN(balance)) {
+      logger.error("failed to query wallet balance!");
+    } else {
+      logger.info("wallet balance: " + balance);
+      metrics.setWalletBalance(balance);
+    }
     nextBalanceQueryTimeAsMs = now.getTime() + balanceQueryInterval;
   }
 }
@@ -232,8 +238,11 @@ export async function postEvent(
     receiveTime: receiveTime,
     seqNum: sequence,
   };
+  var pendingKey = pa.priceId;
+  // pendingKey = pendingKey + ":" + sequence;
+  logger.debug("posting event with key [" + pendingKey + "]");
   await mutex.runExclusive(() => {
-    pendingMap.set(pa.priceId, event);
+    pendingMap.set(pendingKey, event);
     condition.complete(true);
   });
 }
@@ -270,11 +279,15 @@ export async function getStatus() {
   return result;
 }
 
-export async function getPriceData(priceId: string): Promise<any> {
+// Note that querying the contract does not update the sequence number, so we don't need to be locked.
+export async function getPriceData(
+  productId: string,
+  priceId: string
+): Promise<any> {
   var result: any;
-  await mutex.runExclusive(async () => {
-    result = await main.query(priceId);
-  });
+  // await mutex.runExclusive(async () => {
+  result = await main.query(productId, priceId);
+  // });
 
   return result;
 }

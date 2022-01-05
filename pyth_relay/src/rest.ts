@@ -23,11 +23,16 @@ export async function rest(restPort: number) {
       res.json(result);
     });
 
-    app.get("/queryterra/:price_id", async (req, res) => {
-      var result = await getPriceData(req.params.price_id);
+    app.get("/queryterra/:product_id/:price_id", async (req, res) => {
+      var result = await getPriceData(
+        req.params.product_id,
+        req.params.price_id
+      );
       res.json(result);
     });
 
-    app.get("/", (req, res) => res.json(["/status", "/queryterra/<price_id>"]));
+    app.get("/", (req, res) =>
+      res.json(["/status", "/queryterra/<product_id>/<price_id>"])
+    );
   })();
 }

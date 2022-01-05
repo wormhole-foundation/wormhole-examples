@@ -1,5 +1,10 @@
 import { fromUint8Array } from "js-base64";
-import { LCDClient, LCDClientConfig, MnemonicKey } from "@terra-money/terra.js";
+import {
+  LCDClient,
+  LCDClientConfig,
+  MnemonicKey,
+  MsgExecuteContract,
+} from "@terra-money/terra.js";
 import { hexToUint8Array } from "@certusone/wormhole-sdk";
 import { redeemOnTerra } from "@certusone/wormhole-sdk";
 
@@ -79,12 +84,11 @@ export function connectToTerra(): TerraConnectionData {
 
 export async function relayTerra(
   connectionData: TerraConnectionData,
-  signedVAA: string
+  signedVAAs: Array<string>
 ) {
-  const signedVaaArray = hexToUint8Array(signedVAA);
-  logger.debug("relaying to terra, pythData: [" + signedVAA + "]");
+  logger.debug("relaying " + signedVAAs.length + " messages to terra");
 
-  logger.debug("TIME: connecting to terra,", new Date().toISOString());
+  logger.debug("TIME: connecting to terra");
   const lcdClient = new LCDClient(connectionData.lcdConfig);
 
   const mk = new MnemonicKey({
@@ -93,24 +97,30 @@ export async function relayTerra(
 
   const wallet = lcdClient.wallet(mk);
 
-  logger.debug("TIME: creating message,", new Date().toISOString());
-  // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
-  const msg = await redeemOnTerra(
-    connectionData.contractAddress,
-    wallet.key.accAddress,
-    signedVaaArray
-  );
+  logger.debug("TIME: creating messages");
+  var msgs = new Array<MsgExecuteContract>();
+  for (var idx = 0; idx < signedVAAs.length; ++idx) {
+    const signedVaaArray = hexToUint8Array(signedVAAs[idx]);
+    // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
+    const msg = await redeemOnTerra(
+      connectionData.contractAddress,
+      wallet.key.accAddress,
+      signedVaaArray
+    );
 
-  logger.debug("TIME: looking up gas,", new Date().toISOString());
+    msgs.push(msg);
+  }
+
+  logger.debug("TIME: looking up gas");
   //Alternate FCD methodology
   //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
   const gasPrices = lcdClient.config.gasPrices;
 
-  logger.debug("TIME: estimating fees,", new Date().toISOString());
+  logger.debug("TIME: estimating fees");
   //const walletSequence = await wallet.sequence();
   const feeEstimate = await lcdClient.tx.estimateFee(
     wallet.key.accAddress,
-    [msg],
+    msgs,
     {
       //TODO figure out type mismatch
       feeDenoms: [connectionData.coin],
@@ -118,30 +128,36 @@ export async function relayTerra(
     }
   );
 
-  logger.debug("TIME: creating transaction,", new Date().toISOString());
+  logger.debug("TIME: creating transaction");
   const tx = await wallet.createAndSignTx({
-    msgs: [msg],
+    msgs: msgs,
     memo: "Pyth Price Attestation",
     feeDenoms: [connectionData.coin],
     gasPrices,
     fee: feeEstimate,
   });
 
-  logger.debug("TIME: sending msg,", new Date().toISOString());
-  const receipt = await lcdClient.tx.broadcastSync(tx);
-  logger.debug("TIME: done,", new Date().toISOString());
+  logger.debug("TIME: sending msg");
+  const receipt = await lcdClient.tx.broadcast(tx);
+  logger.debug("TIME: done");
   logger.debug("TIME:submitted to terra: receipt: %o", receipt);
   return receipt;
 }
 
 export async function queryTerra(
   connectionData: TerraConnectionData,
+  productIdStr: string,
   priceIdStr: string
 ) {
+  const encodedProductId = fromUint8Array(hexToUint8Array(productIdStr));
   const encodedPriceId = fromUint8Array(hexToUint8Array(priceIdStr));
 
   logger.info(
-    "Querying terra for price info for priceId [" +
+    "Querying terra for price info for productId [" +
+      productIdStr +
+      "], encoded as [" +
+      encodedProductId +
+      "], priceId [" +
       priceIdStr +
       "], encoded as [" +
       encodedPriceId +
@@ -160,6 +176,7 @@ export async function queryTerra(
     connectionData.contractAddress,
     {
       price_info: {
+        product_id: encodedProductId,
         price_id: encodedPriceId,
       },
     }

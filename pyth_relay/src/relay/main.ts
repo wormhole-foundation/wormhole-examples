@@ -18,17 +18,20 @@ export function connectRelayer(): ConnectionData {
 }
 
 export async function relay(
-  signedVAA: string,
+  signedVAAs: Array<string>,
   connectionData: ConnectionData
 ): Promise<any> {
-  return await relayTerra(connectionData.terraData, signedVAA);
+  return await relayTerra(connectionData.terraData, signedVAAs);
 }
 
-export async function query(priceIdStr: string): Promise<any> {
+export async function query(
+  productIdStr: string,
+  priceIdStr: string
+): Promise<any> {
   var result: any;
   try {
     var terraData = connectToTerra();
-    result = await queryTerra(terraData, priceIdStr);
+    result = await queryTerra(terraData, productIdStr, priceIdStr);
   } catch (e) {
     logger.error("query failed: %o", e);
     result = "Error: " + e.message;
