@@ -17,14 +17,12 @@ use solana_program::program::invoke_signed;
 use solana_program::pubkey::Pubkey;
 use solana_program::{
     entrypoint,
-    msg,
 };
 
 // Import Solana Wormhole SDK.
 use wormhole_sdk::{
     instructions::post_message,
     ConsistencyLevel,
-    VAA,
 };
 
 #[cfg(feature = "wasm")]
@@ -39,8 +37,7 @@ pub mod instruction;
 
 #[derive(BorshSerialize, BorshDeserialize, Clone)]
 pub enum Instruction {
-    /// This instruction is used to send a message to another chain by emitting it as a wormhole
-    /// message targetting another users key.
+    /// This instruction is used to send a message to another chain by emitting it as a wormhole message
     /// 0: Payer         [Signer]
     /// 1: Emitter       [Signer]
     /// 2: Message       [PDA]
@@ -62,17 +59,16 @@ entrypoint!(process_instruction);
 pub fn process_instruction(id: &Pubkey, accs: &[AccountInfo], data: &[u8]) -> ProgramResult {
     match BorshDeserialize::try_from_slice(data).unwrap() {
         Instruction::SendMessage(msg) => send_message(id, accs, msg),
-        Instruction::RecvMessage      => recv_message(id, accs),
     }?;
     Ok(())
 }
 
 
-/// Sends a message from this chain to a user on a remote target chain.
+/// Sends a message from this chain to a remote target chain.
 fn send_message(id: &Pubkey, accs: &[AccountInfo], payload: Vec<u8>) -> ProgramResult {
     let accounts = &mut accs.iter();
     let payer = next_account_info(accounts)?;
-    let emitter = next_account_info(accounts)?;
+    let _emitter = next_account_info(accounts)?;
     let message = next_account_info(accounts)?;
     let _config = next_account_info(accounts)?;
     let _fee_collector = next_account_info(accounts)?;
