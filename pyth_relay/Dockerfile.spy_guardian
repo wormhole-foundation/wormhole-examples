@@ -1,29 +1,43 @@
-FROM docker.io/golang:1.17.0-alpine as builder
+# Bare bones linux
+FROM alpine:3.8 AS checkout
 
-RUN apk add --no-cache git gcc linux-headers alpine-sdk bash
+# Update apline linux and add git.
+RUN apk update && apk upgrade && apk add --no-cache git openssh
 
-WORKDIR /app
-RUN git clone https://github.com/certusone/wormhole.git
+# Clone the wormhole repo.
+RUN mkdir /app && cd /app && git clone https://github.com/certusone/wormhole.git .
 
-WORKDIR /app/wormhole/tools
-RUN CGO_ENABLED=0 ./build.sh
+# syntax=docker.io/docker/dockerfile:experimental@sha256:de85b2f3a3e8a2f7fe48e8e84a65f6fdd5cd5183afa6412fff9caa6871649c44
+FROM docker.io/golang:1.17.0@sha256:06e92e576fc7a7067a268d47727f3083c0a564331bfcbfdde633157fc91fb17d AS go-tools
 
-WORKDIR /app/wormhole
-RUN tools/bin/buf lint && tools/bin/buf generate
+COPY --from=checkout /app /app
 
-WORKDIR /app/wormhole/node/tools
-RUN go build -mod=readonly -o /dlv github.com/go-delve/delve/cmd/dlv
+RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
+	cd /app/tools && CGO_ENABLED=0 ./build.sh
 
-WORKDIR /app/wormhole/node
-RUN go build -race -gcflags="all=-N -l" -mod=readonly -o /guardiand github.com/certusone/wormhole/node
+# syntax=docker.io/docker/dockerfile:experimental@sha256:de85b2f3a3e8a2f7fe48e8e84a65f6fdd5cd5183afa6412fff9caa6871649c44
+FROM docker.io/golang:1.17.0@sha256:06e92e576fc7a7067a268d47727f3083c0a564331bfcbfdde633157fc91fb17d AS go-build
 
-FROM docker.io/golang:1.17.0-alpine
+COPY --from=go-tools /app /app
 
-WORKDIR /app
-COPY --from=builder /guardiand /app/guardiand
+RUN --mount=type=cache,target=/root/.cache \
+	cd /app && \
+	tools/bin/buf lint && \
+	tools/bin/buf generate
 
-RUN addgroup -S pyth -g 10001 && adduser -S pyth -G pyth -u 10001
-RUN chown -R pyth:pyth .
-USER pyth
+# RUN cp /app/node/pkg/proto /app/pkg/proto
 
-CMD ["./guardiand", "spy", "--nodeKey", "/tmp/node.key"]
+# syntax=docker.io/docker/dockerfile:experimental@sha256:de85b2f3a3e8a2f7fe48e8e84a65f6fdd5cd5183afa6412fff9caa6871649c44
+FROM docker.io/golang:1.17.0@sha256:06e92e576fc7a7067a268d47727f3083c0a564331bfcbfdde633157fc91fb17d
+
+WORKDIR /app/node
+
+COPY --from=go-build /app /app
+
+RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
+  cd tools/ && go build -mod=readonly -o /dlv github.com/go-delve/delve/cmd/dlv
+
+RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
+  go build -race -gcflags="all=-N -l" -mod=readonly -o /guardiand github.com/certusone/wormhole/node
+
+ENTRYPOINT /guardiand spy --nodeKey /tmp/node.key $ARGS
