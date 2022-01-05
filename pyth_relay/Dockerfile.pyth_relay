@@ -1,34 +1,15 @@
-# Bare bones linux
-FROM alpine:3.8 AS checkout
-
-# Update apline linux and add git.
-RUN apk update && apk upgrade && apk add --no-cache git openssh
-
-# Get Node
-FROM node:16
-
-
-# Clone the wormhole-examples repo.
-RUN mkdir /app && cd /app && git clone https://github.com/certusone/wormhole-examples.git .
-
-# Until we merge into main, we need to check out the branch.
-RUN cd /app && git checkout pyth_relay
-
-RUN mkdir /app/pyth_relay/logs
+FROM node:16-alpine
 
 WORKDIR /app/pyth_relay
-
-RUN npm install
-
-# COPY --from=go-build /app /app
-
-RUN --mount=type=cache,target=/root/.cache --mount=type=cache,target=/go \
-npm run build
+COPY . .
+RUN npm install && npm run build && npm cache clean --force
 
 # If you are building for production
 # RUN npm ci --only=production
 
-# Bundle app source
-COPY . .
+RUN mkdir -p /app/pyth_relay/logs
+RUN addgroup -S pyth -g 10001 && adduser -S pyth -G pyth -u 10001
+RUN chown -R pyth:pyth src/ logs/ lib/
+USER pyth
 
 CMD [ "node", "lib/index.js" ]
