@@ -77,23 +77,63 @@ export async function worker(met: PromHelper) {
 
 async function callBack(err: any, result: any) {
   logger.debug(
-    "in callback, processing events, err: %o, result: %o",
+    "entering callback, pendingEvents: " +
+      pendingMap.size +
+      ", err: %o, result: %o",
     err,
     result
   );
+  // condition = null;
   // await helpers.sleep(10000);
   // logger.debug("done with long sleep");
-  await mutex.runExclusive(async () => {
-    await processEventsAlreadyLocked();
+  var done = false;
+  do {
+    var currObjs = new Array<CurrentEntry>();
+    var messages = new Array<string>();
 
-    logger.debug("in callback, rearming the condition.");
-    condition = new CondVar();
-    await condition.wait(computeTimeout(), callBack);
-  });
+    await mutex.runExclusive(async () => {
+      condition = null;
+      logger.debug("in callback, getting pending events.");
+      await getPendingEventsAlreadyLocked(currObjs, messages);
+
+      if (currObjs.length === 0) {
+        done = true;
+        condition = new CondVar();
+        await condition.wait(computeTimeout(), callBack);
+      }
+    });
+
+    if (currObjs.length !== 0) {
+      logger.debug("in callback, relaying " + currObjs.length + " events.");
+      var sendTime = new Date();
+      var success: boolean;
+      var relayResult: any;
+      [success, relayResult] = await relayEventsNotLocked(messages);
+
+      await mutex.runExclusive(async () => {
+        logger.debug("in callback, finalizing " + currObjs.length + " events.");
+        await finalizeEventsAlreadyLocked(
+          currObjs,
+          success,
+          relayResult,
+          sendTime
+        );
+
+        if (pendingMap.size === 0) {
+          logger.debug("in callback, rearming the condition.");
+          done = true;
+          condition = new CondVar();
+          await condition.wait(computeTimeout(), callBack);
+        }
+      });
+    }
+  } while (!done);
+
+  logger.debug("leaving callback.");
 }
 
 function computeTimeout(): number {
-  if (balanceQueryInterval != 0) {
+  if (balanceQueryInterval !== 0) {
     var now = new Date().getTime();
     if (now < nextBalanceQueryTimeAsMs) {
       return nextBalanceQueryTimeAsMs - now;
@@ -105,11 +145,10 @@ function computeTimeout(): number {
   return conditionTimeout;
 }
 
-async function processEventsAlreadyLocked() {
-  var currObjs = new Array<CurrentEntry>();
-  var currEntries = new Array<PendingPayload>();
-  var messages = new Array<string>();
-
+async function getPendingEventsAlreadyLocked(
+  currObjs: Array<CurrentEntry>,
+  messages: Array<string>
+) {
   for (let [pk, pendingValue] of pendingMap) {
     logger.debug("processing event with key [" + pk + "]");
     var pendingKey = pendingValue.pa.priceId;
@@ -153,64 +192,74 @@ async function processEventsAlreadyLocked() {
   }
 
   pendingMap.clear();
+}
 
-  if (currObjs.length != 0) {
-    var sendTime = new Date();
-    var relayResult: any;
-    var success = true;
-    try {
-      relayResult = await main.relay(messages, connectionData);
-      if (relayResult.txhash) {
-        relayResult = relayResult.txhash;
-      } else if (relayResult.message) {
-        relayResult = relayResult.message;
-      }
-    } catch (e) {
-      logger.error("relay failed: %o", e);
-      relayResult = "Error: " + e.message;
-      success = false;
+async function relayEventsNotLocked(
+  messages: Array<string>
+): Promise<[boolean, any]> {
+  var success = true;
+  var relayResult: any;
+  try {
+    relayResult = await main.relay(messages, connectionData);
+    if (relayResult.txhash) {
+      relayResult = relayResult.txhash;
+    } else if (relayResult.message) {
+      relayResult = relayResult.message;
     }
+  } catch (e) {
+    logger.error("relay failed: %o", e);
+    relayResult = "Error: " + e.message;
+    success = false;
+  }
 
-    for (var idx = 0; idx < currObjs.length; ++idx) {
-      var currObj = currObjs[idx].currObj;
-      var currEntry = currObjs[idx].pendingEntry;
-      currObj.lastResult = relayResult;
-      currObj.numTimesPublished = currObj.numTimesPublished + 1;
-      if (success) {
-        metrics.incSuccesses();
-      } else {
-        metrics.incFailures();
-      }
-      productMap.set(currObj.key, currObj);
+  return [success, relayResult];
+}
 
-      var completeTime = new Date();
-      metrics.setSeqNum(currEntry.seqNum);
-      metrics.addCompleteTime(
-        completeTime.getTime() - currEntry.receiveTime.getTime()
-      );
-
-      logger.info(
-        "complete: priceId: " +
-          currEntry.pa.priceId +
-          ", seqNum: " +
-          currEntry.seqNum +
-          ", price: " +
-          helpers.computePrice(currEntry.pa.price, currEntry.pa.exponent) +
-          ", ci: " +
-          helpers.computePrice(
-            currEntry.pa.confidenceInterval,
-            currEntry.pa.exponent
-          ) +
-          ", rcv2SendBegin: " +
-          (sendTime.getTime() - currEntry.receiveTime.getTime()) +
-          ", rcv2SendComplete: " +
-          (completeTime.getTime() - currEntry.receiveTime.getTime()) +
-          ", totalSends: " +
-          currObj.numTimesPublished +
-          ", result: " +
-          relayResult
-      );
+async function finalizeEventsAlreadyLocked(
+  currObjs: Array<CurrentEntry>,
+  success: boolean,
+  relayResult: any,
+  sendTime: Date
+) {
+  for (var idx = 0; idx < currObjs.length; ++idx) {
+    var currObj = currObjs[idx].currObj;
+    var currEntry = currObjs[idx].pendingEntry;
+    currObj.lastResult = relayResult;
+    currObj.numTimesPublished = currObj.numTimesPublished + 1;
+    if (success) {
+      metrics.incSuccesses();
+    } else {
+      metrics.incFailures();
     }
+    productMap.set(currObj.key, currObj);
+
+    var completeTime = new Date();
+    metrics.setSeqNum(currEntry.seqNum);
+    metrics.addCompleteTime(
+      completeTime.getTime() - currEntry.receiveTime.getTime()
+    );
+
+    logger.info(
+      "complete: priceId: " +
+        currEntry.pa.priceId +
+        ", seqNum: " +
+        currEntry.seqNum +
+        ", price: " +
+        helpers.computePrice(currEntry.pa.price, currEntry.pa.exponent) +
+        ", ci: " +
+        helpers.computePrice(
+          currEntry.pa.confidenceInterval,
+          currEntry.pa.exponent
+        ) +
+        ", rcv2SendBegin: " +
+        (sendTime.getTime() - currEntry.receiveTime.getTime()) +
+        ", rcv2SendComplete: " +
+        (completeTime.getTime() - currEntry.receiveTime.getTime()) +
+        ", totalSends: " +
+        currObj.numTimesPublished +
+        ", result: " +
+        relayResult
+    );
   }
 
   var now = new Date();
@@ -240,10 +289,13 @@ export async function postEvent(
   };
   var pendingKey = pa.priceId;
   // pendingKey = pendingKey + ":" + sequence;
-  logger.debug("posting event with key [" + pendingKey + "]");
   await mutex.runExclusive(() => {
+    logger.debug("posting event with key [" + pendingKey + "]");
     pendingMap.set(pendingKey, event);
-    condition.complete(true);
+    if (condition) {
+      logger.debug("hitting condition variable.");
+      condition.complete(true);
+    }
   });
 }
 
