@@ -40,6 +40,10 @@ export class PromHelper {
     name: "already_executed",
     help: "number of transfers rejected due to already having been executed",
   });
+  private transferTimeoutCounter = new client.Counter({
+    name: "transfer_timeout",
+    help: "number of transfers that timed out",
+  });
   // End metrics
 
   private server = http.createServer(async (req, res) => {
@@ -64,6 +68,7 @@ export class PromHelper {
     this.register.registerMetric(this.walletBalance);
     this.register.registerMetric(this.listenCounter);
     this.register.registerMetric(this.alreadyExecutedCounter);
+    this.register.registerMetric(this.transferTimeoutCounter);
     // End registering metric
 
     this.server.listen(port);
@@ -90,5 +95,8 @@ export class PromHelper {
   }
   incAlreadyExec() {
     this.alreadyExecutedCounter.inc();
+  }
+  incTransferTimeout() {
+    this.transferTimeoutCounter.inc();
   }
 }
