@@ -1,6 +1,4 @@
 import http = require("http");
-// import url = require("url");
-// var URL = require("url").URL;
 import client = require("prom-client");
 
 // NOTE:  To create a new metric:
@@ -28,15 +26,19 @@ export class PromHelper {
   private completeTime = new client.Histogram({
     name: "complete_time",
     help: "Time is took to complete transfer",
-    buckets: [200, 400, 600, 800, 1000, 2000],
+    buckets: [400, 800, 1600, 3200, 6400, 12800],
   });
   private walletBalance = new client.Gauge({
-    name: "walletBalance",
+    name: "wallet_balance",
     help: "The wallet balance",
   });
   private listenCounter = new client.Counter({
     name: "VAAs_received",
     help: "number of Pyth VAAs received",
+  });
+  private alreadyExecutedCounter = new client.Counter({
+    name: "already_executed",
+    help: "number of transfers rejected due to already having been executed",
   });
   // End metrics
 
@@ -61,6 +63,7 @@ export class PromHelper {
     this.register.registerMetric(this.completeTime);
     this.register.registerMetric(this.walletBalance);
     this.register.registerMetric(this.listenCounter);
+    this.register.registerMetric(this.alreadyExecutedCounter);
     // End registering metric
 
     this.server.listen(port);
@@ -84,5 +87,8 @@ export class PromHelper {
   }
   incIncoming() {
     this.listenCounter.inc();
+  }
+  incAlreadyExec() {
+    this.alreadyExecutedCounter.inc();
   }
 }
