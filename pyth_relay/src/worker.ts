@@ -106,15 +106,15 @@ async function callBack(err: any, result: any) {
     if (currObjs.length !== 0) {
       logger.debug("in callback, relaying " + currObjs.length + " events.");
       var sendTime = new Date();
-      var success: boolean;
+      var retVal: number;
       var relayResult: any;
-      [success, relayResult] = await relayEventsNotLocked(messages);
+      [retVal, relayResult] = await relayEventsNotLocked(messages);
 
       await mutex.runExclusive(async () => {
         logger.debug("in callback, finalizing " + currObjs.length + " events.");
         await finalizeEventsAlreadyLocked(
           currObjs,
-          success,
+          retVal,
           relayResult,
           sendTime
         );
@@ -194,30 +194,54 @@ async function getPendingEventsAlreadyLocked(
   pendingMap.clear();
 }
 
+const RELAY_SUCCESS: number = 0;
+const RELAY_FAIL: number = 1;
+const RELAY_ALREADY_EXECUTED: number = 2;
+const RELAY_TIMEOUT: number = 3;
+
 async function relayEventsNotLocked(
   messages: Array<string>
-): Promise<[boolean, any]> {
-  var success = true;
+): Promise<[number, any]> {
+  var retVal: number = RELAY_SUCCESS;
   var relayResult: any;
   try {
     relayResult = await main.relay(messages, connectionData);
     if (relayResult.txhash) {
-      relayResult = relayResult.txhash;
-    } else if (relayResult.message) {
-      relayResult = relayResult.message;
+      if (
+        relayResult.raw_log &&
+        relayResult.raw_log.search("VaaAlreadyExecuted") >= 0
+      ) {
+        relayResult = "Already Executed: " + relayResult.txhash;
+        retVal = RELAY_ALREADY_EXECUTED;
+      } else {
+        relayResult = relayResult.txhash;
+      }
+    } else {
+      retVal = RELAY_FAIL;
+      if (relayResult.message) {
+        relayResult = relayResult.message;
+      } else {
+        logger.error("No txhash: %o", relayResult);
+        relayResult = "No txhash";
+      }
     }
   } catch (e) {
-    logger.error("relay failed: %o", e);
+    if (e.message.search("timeout") >= 0 && e.message.search("exceeded") >= 0) {
+      logger.error("relay timed out: %o", e);
+      retVal = RELAY_TIMEOUT;
+    } else {
+      logger.error("relay failed: %o", e);
+      retVal = RELAY_FAIL;
+    }
     relayResult = "Error: " + e.message;
-    success = false;
   }
 
-  return [success, relayResult];
+  return [retVal, relayResult];
 }
 
 async function finalizeEventsAlreadyLocked(
   currObjs: Array<CurrentEntry>,
-  success: boolean,
+  retVal: number,
   relayResult: any,
   sendTime: Date
 ) {
@@ -226,8 +250,13 @@ async function finalizeEventsAlreadyLocked(
     var currEntry = currObjs[idx].pendingEntry;
     currObj.lastResult = relayResult;
     currObj.numTimesPublished = currObj.numTimesPublished + 1;
-    if (success) {
+    if (retVal == RELAY_SUCCESS) {
       metrics.incSuccesses();
+    } else if (retVal == RELAY_ALREADY_EXECUTED) {
+      metrics.incAlreadyExec();
+    } else if (retVal == RELAY_TIMEOUT) {
+      metrics.incTransferTimeout();
+      metrics.incFailures();
     } else {
       metrics.incFailures();
     }
