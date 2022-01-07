@@ -41,6 +41,7 @@ var connectionData: main.ConnectionData;
 var metrics: PromHelper;
 var nextBalanceQueryTimeAsMs: number = 0;
 var balanceQueryInterval = 0;
+var walletTimeStamp: Date;
 
 export async function worker(met: PromHelper) {
   setDefaultWasm("node");
@@ -55,6 +56,9 @@ export async function worker(met: PromHelper) {
     }
 
     var balance = await main.queryBalance(connectionData);
+    if (!isNaN(balance)) {
+      walletTimeStamp = new Date();
+    }
     if (balanceQueryInterval !== 0) {
       logger.info(
         "initial wallet balance is " +
@@ -307,7 +311,15 @@ async function finalizeEventsAlreadyLocked(
     if (isNaN(balance)) {
       logger.error("failed to query wallet balance!");
     } else {
-      logger.info("wallet balance: " + balance);
+      if (!isNaN(balance)) {
+        walletTimeStamp = new Date();
+      }
+      logger.info(
+        "wallet balance: " +
+          balance +
+          ", update time: " +
+          walletTimeStamp.toISOString()
+      );
       metrics.setWalletBalance(balance);
     }
     nextBalanceQueryTimeAsMs = now.getTime() + balanceQueryInterval;
