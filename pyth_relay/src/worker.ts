@@ -231,9 +231,19 @@ async function relayEventsNotLocked(
       retVal = RELAY_TIMEOUT;
     } else {
       logger.error("relay failed: %o", e);
-      retVal = RELAY_FAIL;
+      if (
+        e.response &&
+        e.response.data &&
+        e.response.data.error &&
+        e.response.data.error.search("VaaAlreadyExecuted") >= 0
+      ) {
+        relayResult = "Already Executed";
+        retVal = RELAY_ALREADY_EXECUTED;
+      } else {
+        retVal = RELAY_FAIL;
+        relayResult = "Error: " + e.message;
+      }
     }
-    relayResult = "Error: " + e.message;
   }
 
   return [retVal, relayResult];
