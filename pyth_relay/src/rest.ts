@@ -5,8 +5,18 @@ import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { getStatus, getPriceData } from "./worker";
 
-export async function rest(restPort: number) {
-  const RELAYER_URL = "http://localhost:3001/relay";
+var restPort: number = 0;
+
+export function init(runRest: boolean): boolean {
+  if (!runRest) return true;
+  if (!process.env.REST_PORT) return true;
+
+  restPort = parseInt(process.env.REST_PORT);
+  return true;
+}
+
+export async function run() {
+  if (restPort == 0) return;
 
   const express = require("express");
   const cors = require("cors");

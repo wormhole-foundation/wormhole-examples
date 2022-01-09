@@ -22,33 +22,27 @@ export type TerraConnectionData = {
 
 export function connectToTerra(): TerraConnectionData {
   if (!process.env.TERRA_NODE_URL) {
-    logger.error("Missing environment variable TERRA_NODE_URL");
-    process.exit(1);
+    throw "Missing environment variable TERRA_NODE_URL";
   }
 
   if (!process.env.TERRA_CHAIN_ID) {
-    logger.error("Missing environment variable TERRA_CHAIN_ID");
-    process.exit(1);
+    throw "Missing environment variable TERRA_CHAIN_ID";
   }
 
   if (!process.env.TERRA_NAME) {
-    logger.error("Missing environment variable TERRA_NAME");
-    process.exit(1);
+    throw "Missing environment variable TERRA_NAME";
   }
 
   if (!process.env.TERRA_PRIVATE_KEY) {
-    logger.error("Missing environment variable TERRA_PRIVATE_KEY");
-    process.exit(1);
+    throw "Missing environment variable TERRA_PRIVATE_KEY";
   }
 
   if (!process.env.TERRA_COIN) {
-    logger.error("Missing environment variable TERRA_COIN");
-    process.exit(1);
+    throw "Missing environment variable TERRA_COIN";
   }
 
   if (!process.env.TERRA_PYTH_CONTRACT_ADDRESS) {
-    logger.error("Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS");
-    process.exit(1);
+    throw "Missing environment variable TERRA_PYTH_CONTRACT_ADDRESS";
   }
 
   logger.info(

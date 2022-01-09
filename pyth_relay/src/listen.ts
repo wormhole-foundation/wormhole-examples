@@ -22,14 +22,22 @@ import { postEvent } from "./worker";
 import { PromHelper } from "./promHelpers";
 
 var seqMap = new Map<string, number>();
+var listenOnly: boolean = false;
+var metrics: PromHelper;
 
-export async function listen(listenOnly: boolean, met: PromHelper) {
-  require("dotenv").config();
+export function init(lo: boolean): boolean {
+  listenOnly = lo;
+
   if (!process.env.SPY_SERVICE_HOST) {
     logger.error("Missing environment variable SPY_SERVICE_HOST");
-    process.exit(1);
+    return false;
   }
 
+  return true;
+}
+
+export async function run(pm: PromHelper) {
+  metrics = pm;
   logger.info(
     "pyth_relay starting up, will listen for signed VAAs from [" +
       process.env.SPY_SERVICE_HOST +
@@ -77,7 +85,7 @@ export async function listen(listenOnly: boolean, met: PromHelper) {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes, listenOnly, met);
+      processVaa(vaaBytes);
     });
 
     logger.info("pyth_relay listening for messages");
@@ -99,11 +107,7 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(
-  vaaBytes: string,
-  listenOnly: boolean,
-  met: PromHelper
-) {
+async function processVaa(vaaBytes: string) {
   var receiveTime = new Date();
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
@@ -184,7 +188,7 @@ async function processVaa(
       // "]"
     );
 
-    met.incIncoming();
+    metrics.incIncoming();
     if (!listenOnly) {
       logger.debug("posting to worker");
       await postEvent(vaaBytes, pa, parsedVAA.sequence, receiveTime);

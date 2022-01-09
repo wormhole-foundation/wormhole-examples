@@ -43,14 +43,25 @@ var nextBalanceQueryTimeAsMs: number = 0;
 var balanceQueryInterval = 0;
 var walletTimeStamp: Date;
 
-export async function worker(met: PromHelper) {
+export function init(runWorker: boolean): boolean {
+  if (!runWorker) return true;
+
+  try {
+    connectionData = main.connectRelayer();
+  } catch (e) {
+    logger.error("failed to load connection config: %o", e);
+    return false;
+  }
+
+  return true;
+}
+
+export async function run(met: PromHelper) {
   setDefaultWasm("node");
-  require("dotenv").config();
+
+  metrics = met;
 
   await mutex.runExclusive(async () => {
-    connectionData = main.connectRelayer();
-    metrics = met;
-
     if (process.env.BAL_QUERY_INTERVAL) {
       balanceQueryInterval = parseInt(process.env.BAL_QUERY_INTERVAL);
     }
