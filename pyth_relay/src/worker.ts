@@ -217,6 +217,12 @@ async function relayEventsNotLocked(
       ) {
         relayResult = "Already Executed: " + relayResult.txhash;
         retVal = RELAY_ALREADY_EXECUTED;
+      } else if (
+        relayResult.raw_log &&
+        relayResult.raw_log.search("failed") >= 0
+      ) {
+        logger.error("relay seems to have failed: %o", relayResult);
+        retVal = RELAY_FAIL;
       } else {
         relayResult = relayResult.txhash;
       }
