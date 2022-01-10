@@ -8,7 +8,7 @@ import client = require("prom-client");
 
 export class PromHelper {
   private register = new client.Registry();
-  private label: string;
+  private walletReg = new client.Registry();
 
   // Actual metrics
   private seqNumGauge = new client.Gauge({
@@ -31,6 +31,8 @@ export class PromHelper {
   private walletBalance = new client.Gauge({
     name: "wallet_balance",
     help: "The wallet balance",
+    labelNames: ["timestamp"],
+    registers: [this.walletReg],
   });
   private listenCounter = new client.Counter({
     name: "VAAs_received",
@@ -48,14 +50,14 @@ export class PromHelper {
 
   private server = http.createServer(async (req, res) => {
     if (req.url === "/metrics") {
-      // Return all metrics the Prometheus exposition format
+      // Return all metrics in the Prometheus exposition format
       res.setHeader("Content-Type", this.register.contentType);
-      res.end(await this.register.metrics());
+      res.write(await this.register.metrics());
+      res.end(await this.walletReg.metrics());
     }
   });
 
   constructor(name: string, port) {
-    this.label = name;
     this.register.setDefaultLabels({
       app: name,
     });
@@ -65,7 +67,6 @@ export class PromHelper {
     this.register.registerMetric(this.successCounter);
     this.register.registerMetric(this.failureCounter);
     this.register.registerMetric(this.completeTime);
-    this.register.registerMetric(this.walletBalance);
     this.register.registerMetric(this.listenCounter);
     this.register.registerMetric(this.alreadyExecutedCounter);
     this.register.registerMetric(this.transferTimeoutCounter);
@@ -88,7 +89,19 @@ export class PromHelper {
     this.completeTime.observe(val);
   }
   setWalletBalance(bal) {
-    this.walletBalance.set(bal);
+    this.walletReg.clear();
+    // this.walletReg = new client.Registry();
+    this.walletBalance = new client.Gauge({
+      name: "wallet_balance",
+      help: "The wallet balance",
+      labelNames: ["timestamp"],
+      registers: [this.walletReg],
+    });
+    this.walletReg.registerMetric(this.walletBalance);
+    var now = new Date();
+    // this.walletDate = now.toString();
+    this.walletBalance.set({ timestamp: now.toString() }, bal);
+    // this.walletBalance.set(bal);
   }
   incIncoming() {
     this.listenCounter.inc();
