@@ -16,7 +16,7 @@ module.exports = {
 
       const wasmLoader = {
         test: /\.wasm$/,
-        exclude: /node_modules/,
+        include: /node_modules\/wormhole-messenger-solana/,
         loaders: ["wasm-loader"],
       };
 

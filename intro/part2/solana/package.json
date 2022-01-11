@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@certusone/wormhole-sdk": "^0.2.1",
+    "@solana/web3.js": "^1.36.0",
+    "bn.js": "^5.2.0",
+    "ethers": "^5.4.1",
+    "ts-node": "^10.7.0"
+  }
+}

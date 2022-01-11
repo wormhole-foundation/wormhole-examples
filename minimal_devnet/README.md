@@ -14,13 +14,19 @@ sudo chmod +x /usr/local/bin/docker-compose
 ## Build
 
 ```bash
+# No Solana:
 docker-compose build --no-cache
+# Include Solana:
+docker-compose --profile solana build --no-cache
 ```
 
 ## Start
 
 ```bash
+# No Solana:
 docker-compose up
+# Include Solana:
+docker-compose --profile solana up
 ```
 
 The network is ready when you see logs from `guardian_1`

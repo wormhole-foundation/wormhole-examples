@@ -13,7 +13,7 @@ use solana_program::account_info::{
     AccountInfo,
 };
 use solana_program::entrypoint::ProgramResult;
-use solana_program::program::invoke_signed;
+//use solana_program::program::invoke_signed;       // For non-SDK calls
 use solana_program::pubkey::Pubkey;
 use solana_program::{
     entrypoint,
@@ -21,7 +21,10 @@ use solana_program::{
 
 // Import Solana Wormhole SDK.
 use wormhole_sdk::{
-    instructions::post_message,
+//    instructions::post_message,   // For non-SDK calls
+//    read_config,                  // For non-SDK calls
+//    fee_collector,                // For non-SDK calls
+    post_message,           // SDK call.
     ConsistencyLevel,
 };
 
@@ -64,7 +67,7 @@ pub fn process_instruction(id: &Pubkey, accs: &[AccountInfo], data: &[u8]) -> Pr
 }
 
 
-/// Sends a message from this chain to a remote target chain.
+/// Sends a message from this chain to wormhole.
 fn send_message(id: &Pubkey, accs: &[AccountInfo], payload: Vec<u8>) -> ProgramResult {
     let accounts = &mut accs.iter();
     let payer = next_account_info(accounts)?;
@@ -80,12 +83,49 @@ fn send_message(id: &Pubkey, accs: &[AccountInfo], payload: Vec<u8>) -> ProgramR
     let _rent = next_account_info(accounts)?;
     let _clock = next_account_info(accounts)?;
 
-    // Emit Message via the Wormhole.
-    let (emitter, mut seeds, bump) = wormhole_sdk::emitter(id);
-    let bump = &[bump];
-    seeds.push(bump);
+    // Use SDK: 
+    // Extract seeds for emitter account only if needed to pass to post_message
+    // let (emitter, mut seeds, bump) = wormhole_sdk::emitter(id);
+    // let bump = &[bump];
+    // seeds.push(bump);
 
+    post_message(
+        *id,
+        *payer.key,
+        *message.key,
+        payload,
+        ConsistencyLevel::Confirmed,
+        None,       //Some(&seeds),  // If needed.
+        accs,
+        0
+    )?;
+
+    /*
+    // Emit Message via the Wormhole.
+   let (emitter, mut seeds, bump) = wormhole_sdk::emitter(id);
+   let bump = &[bump];
+   seeds.push(bump);
+
+
+   // Test from SDK.
+    // Filter for the Config AccountInfo so we can access its data.
+    let config = wormhole_sdk::config(&wormhole_sdk::id());
+    let config = accs.iter().find(|item| *item.key == config).unwrap();
+    let config = read_config(config).unwrap();
+
+    let fee_collector = fee_collector(&wormhole_sdk::id());
     invoke_signed(
+      &solana_program::system_instruction::transfer(
+        payer.key,
+        &fee_collector,
+        config.fee
+      ),
+      accs,
+      &[&seeds],
+    )?;
+
+    //zz Use instructions: 
+     invoke_signed(
         &post_message(
             wormhole_sdk::id(),
             *payer.key,
@@ -99,6 +139,6 @@ fn send_message(id: &Pubkey, accs: &[AccountInfo], payload: Vec<u8>) -> ProgramR
         accs,
         &[&seeds],
     )?;
-
+*/
     Ok(())
 }
