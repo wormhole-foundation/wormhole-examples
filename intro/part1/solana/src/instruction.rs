@@ -41,7 +41,7 @@ pub fn send_message(
             AccountMeta::new_readonly(emitter, false),
             AccountMeta::new(message, true),
             AccountMeta::new(config, false),
-            AccountMeta::new_readonly(fee_collector, false),
+            AccountMeta::new(fee_collector, false),
             AccountMeta::new(sequence, false),
             AccountMeta::new_readonly(wormhole, false),
             AccountMeta::new_readonly(system_program::id(), false),

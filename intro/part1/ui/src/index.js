@@ -5,6 +5,7 @@ import ReactDOM from "react-dom";
 import App from "./App";
 import { EthereumProviderProvider } from "./contexts/EthereumProviderContext";
 import { SolanaWalletProvider } from "./contexts/SolanaWalletContext";
+import { TerraWalletProvider } from "./contexts/TerraWalletContext.tsx";
 import { SnackbarProvider } from "notistack";
 
 const darkTheme = createTheme({
@@ -21,7 +22,9 @@ ReactDOM.render(
       <SnackbarProvider maxSnack={3}>
         <SolanaWalletProvider>
           <EthereumProviderProvider>
-            <App />
+            <TerraWalletProvider>
+              <App />
+            </TerraWalletProvider>
           </EthereumProviderProvider>
         </SolanaWalletProvider>
       </SnackbarProvider>

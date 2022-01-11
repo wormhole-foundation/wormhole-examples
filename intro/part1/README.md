@@ -11,7 +11,24 @@
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup default nightly-2021-08-01
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 sh -c "$(curl -sSfL https://release.solana.com/v1.8.1/install)"
+```
+
+Actually:
+
+```bash
+rustup default nightly
+```
+
+Works instead of nightly-2021-08-01
+And in messenger_solana_bg.js following code needs to commented out for now:
+
+```
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_systeminstruction_free(ptr);
+    }
 ```
 
 restart your terminal or run the provided export command
@@ -25,6 +42,7 @@ Deploy the EVM contracts
 ```bash
 cd ethereum
 npm ci
+npm run build
 npm run migrate
 ```
 
@@ -34,11 +52,13 @@ Deploy the Solana contracts and generate wasm (for UI)
 cd solana
 EMITTER_ADDRESS="11111111111111111111111111111115" cargo build-bpf
 # if running the local (tilt) devnet
+# if kubectl was not found - use "minikube kubectl -- " in place of "kubectl "
 kubectl cp -c devnet target/deploy/messenger_solana.so solana-devnet-0:/usr/src/
 kubectl cp -c devnet id.json solana-devnet-0:/usr/src/
 kubectl exec -c devnet solana-devnet-0 -- solana program deploy -u l --output json -k /usr/src/id.json /usr/src/messenger_solana.so > ../ui/src/contract-addresses/solana.json
 # else if running the minimal-devnet
 solana program deploy -u l --output json -k id.json target/deploy/messenger_solana.so > ../ui/src/contract-addresses/solana.json
+# Generate wasm for JS code (Tilt and minimal-devnet)
 EMITTER_ADDRESS="11111111111111111111111111111115" wasm-pack build --target bundler -d bundler -- --features wasm
 ```
 

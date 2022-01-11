@@ -1,22 +1,4 @@
-import {
-  ChainId,
-  CHAIN_ID_BSC,
-  CHAIN_ID_ETH,
-  CHAIN_ID_SOLANA,
-  createNonce,
-  getBridgeFeeIx,
-  getEmitterAddressEth,
-  getEmitterAddressSolana,
-  hexToNativeString,
-  ixFromRust,
-  parseSequenceFromLogEth,
-  parseSequenceFromLogSolana,
-} from "@certusone/wormhole-sdk";
-import { uint8ArrayToNative } from "@certusone/wormhole-sdk/lib/esm";
-import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSignedVAAWithRetry";
-import { importCoreWasm } from "@certusone/wormhole-sdk/lib/esm/solana/wasm";
-import { hexlify, hexStripZeros } from "@ethersproject/bytes";
-import { Web3Provider } from "@ethersproject/providers";
+import React, { useCallback, useState } from "react";
 import {
   Box,
   Button,
@@ -30,14 +12,48 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Connection, Keypair, Transaction } from "@solana/web3.js";
 import { useSnackbar } from "notistack";
-import React, { useCallback, useState } from "react";
+
+// Wormhole
+import {
+  ChainId,
+  CHAIN_ID_BSC,
+  CHAIN_ID_ETH,
+  CHAIN_ID_SOLANA,
+  CHAIN_ID_TERRA,
+  createNonce,
+  //  getBridgeFeeIx,
+  getEmitterAddressEth,
+  getEmitterAddressSolana,
+  getEmitterAddressTerra,
+  hexToNativeString,
+  ixFromRust,
+  parseSequenceFromLogEth,
+  parseSequenceFromLogSolana,
+  parseSequenceFromLogTerra,
+} from "@certusone/wormhole-sdk";
+import { uint8ArrayToNative } from "@certusone/wormhole-sdk/lib/esm";
+import getSignedVAAWithRetry from "@certusone/wormhole-sdk/lib/esm/rpc/getSignedVAAWithRetry";
+import { importCoreWasm } from "@certusone/wormhole-sdk/lib/esm/solana/wasm";
+
+// Ethereum
+import { hexlify, hexStripZeros } from "@ethersproject/bytes";
+import { Web3Provider } from "@ethersproject/providers";
 import { useEthereumProvider } from "./contexts/EthereumProviderContext";
+import { Messenger__factory } from "./ethers-contracts";
+
+// Terra
+import { MsgExecuteContract, LCDClient } from "@terra-money/terra.js";
+import { useTerraWallet } from "./contexts/TerraWalletContext";
+
+// Solana
+import { Connection, Keypair, Transaction } from "@solana/web3.js";
 import { useSolanaWallet } from "./contexts/SolanaWalletContext";
+
+// Deployed contract addresses.
 import { address as ETH_CONTRACT_ADDRESS } from "./contract-addresses/development";
 import { address as BSC_CONTRACT_ADDRESS } from "./contract-addresses/development2";
-import { Messenger__factory } from "./ethers-contracts";
+import { address as TERRA_CONTRACT_ADDRESS } from "./contract-addresses/terra";
 
 interface ParsedVaa {
   consistency_level: number;
@@ -52,7 +68,7 @@ interface ParsedVaa {
   version: number;
 }
 
-const SOLANA_BRIDGE_ADDRESS = "Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o";
+//const SOLANA_BRIDGE_ADDRESS = "Bridge1p5gheXUvJ6jGWGeCsgPKgnE3YgdGKRVCMY9o";
 const SOLANA_PROGRAM = require("./contract-addresses/solana.json").programId;
 const SOLANA_HOST = "http://localhost:8899";
 const WORMHOLE_RPC_HOSTS = ["http://localhost:7071"];
@@ -63,10 +79,24 @@ const chainToNetwork = (c: ChainId) =>
   hexStripZeros(hexlify(chainToNetworkDec(c)));
 
 const chainToContract = (c: ChainId) =>
-  c === 2 ? ETH_CONTRACT_ADDRESS : c === 4 ? BSC_CONTRACT_ADDRESS : "";
+  c === 2
+    ? ETH_CONTRACT_ADDRESS
+    : c === 4
+    ? BSC_CONTRACT_ADDRESS
+    : c === 3
+    ? TERRA_CONTRACT_ADDRESS // This is actually not used because terra has separate TerraChain handler.
+    : "";
 
 const chainToName = (c: ChainId) =>
-  c === 1 ? "Solana" : c === 2 ? "Ethereum" : c === 4 ? "BSC" : "Unknown";
+  c === 1
+    ? "Solana"
+    : c === 2
+    ? "Ethereum"
+    : c === 4
+    ? "BSC"
+    : c === 3
+    ? "terra"
+    : "Unknown";
 
 const MM_ERR_WITH_INFO_START =
   "VM Exception while processing transaction: revert ";
@@ -79,6 +109,7 @@ const parseError = (e: any) =>
     ? e.message
     : "An unknown error occurred";
 
+// This is metamask, Ethereum.
 const switchProviderNetwork = async (
   provider: Web3Provider,
   chainId: ChainId
@@ -224,11 +255,11 @@ function SolanaChain({
     (async () => {
       try {
         const connection = new Connection(SOLANA_HOST, "confirmed");
-        const transferIx = await getBridgeFeeIx(
-          connection,
-          SOLANA_BRIDGE_ADDRESS,
-          publicKey.toString()
-        );
+        // const transferIx = await getBridgeFeeIx(
+        //   connection,
+        //   SOLANA_BRIDGE_ADDRESS,
+        //   publicKey.toString()
+        // );
         const { send_message_ix } = await import("wormhole-messenger-solana");
         const messageKey = Keypair.generate();
         const emitter = hexToNativeString(
@@ -249,7 +280,8 @@ function SolanaChain({
             new Uint8Array(Buffer.from(messageText))
           )
         );
-        const transaction = new Transaction().add(transferIx, ix);
+        //        const transaction = new Transaction().add(transferIx, ix);
+        const transaction = new Transaction().add(ix);
         const { blockhash } = await connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = publicKey;
@@ -308,20 +340,145 @@ function SolanaChain({
   );
 }
 
+function TerraChain({
+  name,
+  chainId,
+  addMessage,
+}: {
+  name: string;
+  chainId: ChainId;
+  addMessage: (m: ParsedVaa) => void;
+}) {
+  const {
+    //    connect: terraConnect,
+    //    disconnect: terraDisconnect,
+    connected: terraConnected,
+    wallet: terraWallet,
+  } = useTerraWallet();
+  const [messageText, setMessageText] = useState("");
+  const { enqueueSnackbar } = useSnackbar(); //closeSnackbar
+
+  const handleChange = useCallback((event) => {
+    setMessageText(event.target.value);
+  }, []);
+
+  const sendClickHandler = useCallback(() => {
+    if (!terraConnected) return;
+    (async () => {
+      try {
+        // Sending message to Wormhole and waiting for it to be signed.
+        // 1. Create and post string transaction.
+        const sendMsg = new MsgExecuteContract(
+          terraWallet.wallets[0].terraAddress,
+          TERRA_CONTRACT_ADDRESS,
+          {
+            SendMessage: {
+              nonce: 1,
+              text: messageText,
+            },
+          },
+          {}
+        );
+
+        const txResult = await terraWallet.post({
+          msgs: [sendMsg],
+          //memo: "???",
+        });
+
+        // 2. Wait for receipt.
+        const TERRA_HOST = {
+          URL: "http://localhost:1317",
+          chainID: "columbus-5",
+          name: "localterra",
+        };
+        const lcd = new LCDClient(TERRA_HOST);
+        let info;
+        while (!info) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          try {
+            info = await lcd.tx.txInfo(txResult.result.txhash);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        if (info.code !== undefined && info.code !== 0) {
+          // error code
+          throw new Error(
+            `Tx ${txResult.result.txhash}: error code ${info.code}: ${info.raw_log}`
+          );
+        }
+
+        const sequence = parseSequenceFromLogTerra(info);
+        console.log(sequence);
+
+        // 3. Retrieve signed VAA. For this chain and sequence.
+        const { vaaBytes } = await getSignedVAAWithRetry(
+          WORMHOLE_RPC_HOSTS,
+          chainId,
+          await getEmitterAddressTerra(TERRA_CONTRACT_ADDRESS),
+          sequence.toString()
+        );
+        // 4. Parse signed VAA and store it for display and use.
+        // VAA use example is in part2.
+        const { parse_vaa } = await importCoreWasm();
+        const parsedVaa = parse_vaa(vaaBytes);
+        console.log(parsedVaa);
+        addMessage(parsedVaa);
+      } catch (e) {
+        console.log("EXCEPTION in Send: " + e);
+        enqueueSnackbar("EXCEPTION in Send: " + parseError(e), {
+          persist: false,
+        });
+      }
+    })();
+  }, [
+    chainId,
+    messageText,
+    addMessage,
+    enqueueSnackbar,
+    terraConnected,
+    terraWallet,
+  ]);
+
+  return (
+    <Chain
+      name={name}
+      value={messageText}
+      onChange={handleChange}
+      onClick={sendClickHandler}
+      disabled={!terraConnected}
+    />
+  );
+}
+
 function App() {
   const { connect, disconnect, signerAddress } = useEthereumProvider();
   const {
-    wallet,
-    wallets,
-    select,
+    wallet: solanaWallet,
+    wallets: solanaWallets,
+    select: solanaSelect,
     connect: connectSolanaWallet,
     disconnect: disconnectSolanaWallet,
-    publicKey,
+    publicKey: solanaPublicKey,
   } = useSolanaWallet();
+  const {
+    connect: terraConnect,
+    disconnect: terraDisconnect,
+    connected: terraConnected,
+    wallet: terraWallet,
+  } = useTerraWallet();
+  //  const terraAddrStr = (terraWallet && terraWallet.walletAddress) || "";
+  const terraAddrStr =
+    (terraWallet &&
+      terraWallet.wallets &&
+      terraWallet.wallets.length > 0 &&
+      terraWallet.wallets[0].terraAddress) ||
+    "";
   const [messages, setMessages] = useState<ParsedVaa[]>([]);
   const addMessage = useCallback((message: ParsedVaa) => {
     setMessages((arr) => [message, ...arr]);
   }, []);
+  console.log(solanaPublicKey ? solanaPublicKey.toString() : "null");
   return (
     <Box my={2}>
       <Typography variant="h4" component="h1" sx={{ textAlign: "center" }}>
@@ -344,44 +501,72 @@ function App() {
             Connect Metamask
           </Button>
         )}
-        {publicKey ? (
+        {solanaPublicKey ? (
           <Button
             variant="outlined"
             color="inherit"
             onClick={disconnectSolanaWallet}
             sx={{ textTransform: "none", ml: 1 }}
           >
-            {publicKey.toString().substr(0, 5)}
+            {solanaPublicKey.toString().substr(0, 5)}
             ...
-            {publicKey.toString().substr(publicKey.toString().length - 3)}
+            {solanaPublicKey
+              .toString()
+              .substr(solanaPublicKey.toString().length - 3)}
           </Button>
-        ) : wallet ? (
+        ) : solanaWallet ? (
           <Button
             variant="contained"
             color="secondary"
             onClick={connectSolanaWallet}
             sx={{ ml: 1 }}
           >
-            Connect {wallet.name}
+            Connect {solanaWallet.name}
           </Button>
         ) : (
-          wallets.map((wallet) => (
+          solanaWallets.map((wallet) => (
             <Button
               variant="contained"
               color="secondary"
               key={wallet.name}
               onClick={() => {
-                select(wallet.name);
+                solanaSelect(wallet.name);
               }}
               sx={{ ml: 1 }}
             >
-              Connect {wallet.name}
+              Select {wallet.name}
             </Button>
           ))
+        )}
+        {terraConnected ? (
+          <Button
+            variant="outlined"
+            color="inherit"
+            onClick={terraDisconnect}
+            sx={{ ml: 1 }}
+          >
+            {terraAddrStr.substr(0, 5)}
+            ...
+            {terraAddrStr.substr(terraAddrStr.toString().length - 3)}
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={terraConnect}
+            sx={{ ml: 1 }}
+          >
+            Connect Terra
+          </Button>
         )}
       </Box>
       <Box sx={{ display: "flex" }}>
         <Box sx={{ flexBasis: "66%" }}>
+          <TerraChain
+            name="Terra"
+            chainId={CHAIN_ID_TERRA}
+            addMessage={addMessage}
+          />
           <SolanaChain
             name="Solana"
             chainId={CHAIN_ID_SOLANA}
@@ -392,7 +577,11 @@ function App() {
             chainId={CHAIN_ID_ETH}
             addMessage={addMessage}
           />
-          <EVMChain name="BSC" chainId={CHAIN_ID_BSC} addMessage={addMessage} />
+          <EVMChain
+            name="BSC "
+            chainId={CHAIN_ID_BSC}
+            addMessage={addMessage}
+          />
         </Box>
         <Box sx={{ flexGrow: 1, p: 2, pl: 0 }}>
           <Card sx={{ width: "100%", height: "100%" }}>

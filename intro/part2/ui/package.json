@@ -3,12 +3,20 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "@certusone/wormhole-sdk": "^0.1.4",
-    "@craco/craco": "^6.4.3",
+    "@certusone/wormhole-sdk": "^0.2.0",
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "^11.6.0",
     "@metamask/detect-provider": "^1.2.0",
+    "@mui/icons-material": "^5.2.5",
     "@mui/material": "^5.2.4",
+    "@solana/wallet-adapter-base": "^0.5.2",
+    "@solana/wallet-adapter-phantom": "^0.5.3",
+    "@solana/wallet-adapter-react": "^0.11.0",
+    "@solana/wallet-adapter-sollet": "^0.6.0",
+    "@solana/wallet-adapter-wallets": "^0.9.0",
+    "@solana/wallet-base": "^0.0.1",
+    "@solana/web3.js": "^1.31.0",
+    "@terra-money/wallet-provider": "^3.8.0",
     "@testing-library/jest-dom": "^5.16.1",
     "@testing-library/react": "^11.2.7",
     "@testing-library/user-event": "^12.8.3",
@@ -18,7 +26,8 @@
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-scripts": "4.0.3",
-    "web-vitals": "^1.1.2"
+    "web-vitals": "^1.1.2",
+    "wormhole-messenger-solana": "file:../solana/bundler"
   },
   "scripts": {
     "start": "craco start",
@@ -46,7 +55,9 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^6.2.0",
     "@types/react": "^17.0.37",
-    "typechain": "^6.0.5"
+    "typechain": "^6.0.5",
+    "wasm-loader": "^1.3.0"
   }
 }

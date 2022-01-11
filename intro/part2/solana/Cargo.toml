@@ -12,14 +12,17 @@ no-entrypoint = []
 wasm = ["no-entrypoint"]
 
 [dependencies]
-borsh                     = "=0.9.1"
+web-sys                   = "0.3.56"
+borsh                     = "0.9.1"
+sha3                      = "0.9.1"
+thiserror                 = "1.0.24"
+byteorder                 = "1.4.3"
+hex                       = "0.4.3"
 solana-program            = { version="=1.9.4" }
 nom                       = { version="7", default-features=false, features=["alloc"] }
 wasm-bindgen              = { version = "0.2.74", features = ["serde-serialize"] }
 wormhole-sdk              = { git = "https://github.com/certusone/wormhole", features = ["devnet", "solana"] }
-#wormhole-sdk              = { git = "https://github.com/certusone/wormhole", branch="fix/sdk/terra", features = ["devnet", "solana"] }
-#wormhole-sdk              = { git = "https://github.com/certusone/wormhole", branch="feat/solana-update-1-9-4", features = ["devnet", "solana"] }
-#wormhole-sdk              = { path = "../../../../wormhole/sdk/rust/sdk", features = ["devnet", "solana"] }
+#wormhole-sdk              = { path="../../../sdk/rust/sdk", features = ["devnet", "solana"] }
 
 [dev-dependencies]
 solana-program-test = "=1.9.4"
