@@ -48,4 +48,17 @@ if (
     worker.run(promClient);
     rest.run();
   }
+
+  if (process.env.READINESS_PORT) {
+    const readinessPort: number = parseInt(process.env.READINESS_PORT);
+    const Net = require("net");
+    const readinessServer = new Net.Server();
+    readinessServer.listen(readinessPort, function () {
+      logger.info("listening for readiness requests on port " + readinessPort);
+    });
+
+    readinessServer.on("connection", function (socket) {
+      //logger.debug("readiness connection");
+    });
+  }
 }
