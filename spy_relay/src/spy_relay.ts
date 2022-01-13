@@ -23,6 +23,15 @@ import {
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
 
+var listenOnly: boolean = false;
+for (let idx = 0; idx < process.argv.length; ++idx) {
+  if (process.argv[idx] === "--listen_only") {
+    console.log("running in listen only mode, will not forward to redis");
+    listenOnly = true;
+    break;
+  }
+}
+
 require("dotenv").config();
 if (!process.env.SPY_SERVICE_HOST) {
   console.error("Missing environment variable SPY_SERVICE_HOST");
@@ -52,7 +61,10 @@ async function storeInRedis(
   await (await client).set(name, value);
 }
 
-var myRedisClient = connectToRedis();
+var myRedisClient;
+if (!listenOnly) {
+  myRedisClient = connectToRedis();
+}
 
 console.log(
   "spy_relay starting up, will listen for signed VAAs from [%s]",
@@ -127,21 +139,23 @@ function processVaa(parse_vaa, vaaBytes) {
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // console.log(parsedVAA);
   if (parsedVAA.payload[0] === 1) {
-    var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
-    var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
-    //    console.log("storeKey: ", helpers.storeKeyToJson(storeKey));
-    //    console.log("storePayload: ", helpers.storePayloadToJson(storePayload));
-    var newStoreKey = helpers.storeKeyFromJson(JSON.stringify(storeKey));
-    var newStorePayload = helpers.storeePayloadFromJson(
-      JSON.stringify(storePayload)
-    );
-    //    console.log("newStoreKey: ", newStoreKey);
-    //    console.log("newStorePayload: ", newStorePayload);
-    storeInRedis(
-      myRedisClient,
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
+    if (!listenOnly) {
+      var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
+      var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
+      //    console.log("storeKey: ", helpers.storeKeyToJson(storeKey));
+      //    console.log("storePayload: ", helpers.storePayloadToJson(storePayload));
+      var newStoreKey = helpers.storeKeyFromJson(JSON.stringify(storeKey));
+      var newStorePayload = helpers.storeePayloadFromJson(
+        JSON.stringify(storePayload)
+      );
+      //    console.log("newStoreKey: ", newStoreKey);
+      //    console.log("newStorePayload: ", newStorePayload);
+      storeInRedis(
+        myRedisClient,
+        helpers.storeKeyToJson(storeKey),
+        helpers.storePayloadToJson(storePayload)
+      );
+    }
 
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
     console.log(
