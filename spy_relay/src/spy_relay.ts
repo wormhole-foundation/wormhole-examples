@@ -57,7 +57,7 @@ for (let idx = 0; idx < process.argv.length; ++idx) {
 
 // Start the spy listener to listen to the guardians.
 if (runListen) {
-  spy_listen();
+  spy_listen(runWorker);
 }
 
 // Start the spy worker to process VAAs from the store.
