@@ -9,6 +9,7 @@ import client = require("prom-client");
 export class PromHelper {
   private register = new client.Registry();
   private walletReg = new client.Registry();
+  private collectDefaultMetrics = client.collectDefaultMetrics;
 
   // Actual metrics
   private seqNumGauge = new client.Gauge({
@@ -61,7 +62,7 @@ export class PromHelper {
     this.register.setDefaultLabels({
       app: name,
     });
-
+    this.collectDefaultMetrics({ register: this.register });
     // Register each metric
     this.register.registerMetric(this.seqNumGauge);
     this.register.registerMetric(this.successCounter);
