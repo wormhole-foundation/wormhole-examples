@@ -23,6 +23,34 @@ import {
 // import { storeKeyFromParsedVAA, storePayloadFromVaaBytes } from "./helpers";
 import * as helpers from "./helpers";
 
+var pendingMap = new Map<string, string>();
+pendingMap.set("XXX", "XXX should be first");
+pendingMap.set("CCC", "CCC should be second");
+pendingMap.set("XXX", "XXX should still be first");
+pendingMap.set("AAA", "AAA should be third");
+
+for (let [pk, pendingValue] of pendingMap) {
+  console.log("key: [" + pk + "], value: [" + pendingValue + "]");
+}
+
+while (pendingMap.size !== 0) {
+  const first = pendingMap.entries().next();
+
+  console.log(
+    "deleting first item, which is: key: [" +
+      first.value[0] +
+      "], value: [" +
+      first.value[1] +
+      "]"
+  );
+
+  pendingMap.delete(first.value[0]);
+
+  for (let [pk, pendingValue] of pendingMap) {
+    console.log("key: [" + pk + "], value: [" + pendingValue + "]");
+  }
+}
+
 var listenOnly: boolean = false;
 for (let idx = 0; idx < process.argv.length; ++idx) {
   if (process.argv[idx] === "--listen_only") {
@@ -61,63 +89,65 @@ async function storeInRedis(
   await (await client).set(name, value);
 }
 
-var myRedisClient;
-if (!listenOnly) {
-  myRedisClient = connectToRedis();
-}
-
-console.log(
-  "spy_relay starting up, will listen for signed VAAs from [%s]",
-  process.env.SPY_SERVICE_HOST
-);
-
-setDefaultWasm("node");
-
-(async () => {
-  var filter = {};
-  if (process.env.SPY_SERVICE_FILTERS) {
-    const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
-
-    var myFilters = [];
-    for (var i = 0; i < parsedJsonFilters.length; i++) {
-      var myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
-      var myEmitterAddress = await encodeEmitterAddress(
-        myChainId,
-        parsedJsonFilters[i].emitter_address
-      );
-      var myEmitterFilter = {
-        emitterFilter: {
-          chainId: myChainId,
-          emitterAddress: myEmitterAddress,
-        },
-      };
-      console.log(
-        "adding filter: chainId: [%i], emitterAddress: [%s]",
-        myEmitterFilter.emitterFilter.chainId,
-        myEmitterFilter.emitterFilter.emitterAddress
-      );
-      myFilters.push(myEmitterFilter);
-    }
-
-    console.log("setting", myFilters.length, "filters");
-    filter = {
-      filters: myFilters,
-    };
-  } else {
-    console.log("processing all signed VAAs");
+if (false) {
+  var myRedisClient;
+  if (!listenOnly) {
+    myRedisClient = connectToRedis();
   }
 
-  const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
-  const stream = await subscribeSignedVAA(client, filter);
+  console.log(
+    "spy_relay starting up, will listen for signed VAAs from [%s]",
+    process.env.SPY_SERVICE_HOST
+  );
 
-  const { parse_vaa } = await importCoreWasm();
+  setDefaultWasm("node");
 
-  stream.on("data", ({ vaaBytes }) => {
-    processVaa(parse_vaa, vaaBytes);
-  });
+  (async () => {
+    var filter = {};
+    if (process.env.SPY_SERVICE_FILTERS) {
+      const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
 
-  console.log("spy_relay waiting for transfer signed VAAs");
-})();
+      var myFilters = [];
+      for (var i = 0; i < parsedJsonFilters.length; i++) {
+        var myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
+        var myEmitterAddress = await encodeEmitterAddress(
+          myChainId,
+          parsedJsonFilters[i].emitter_address
+        );
+        var myEmitterFilter = {
+          emitterFilter: {
+            chainId: myChainId,
+            emitterAddress: myEmitterAddress,
+          },
+        };
+        console.log(
+          "adding filter: chainId: [%i], emitterAddress: [%s]",
+          myEmitterFilter.emitterFilter.chainId,
+          myEmitterFilter.emitterFilter.emitterAddress
+        );
+        myFilters.push(myEmitterFilter);
+      }
+
+      console.log("setting", myFilters.length, "filters");
+      filter = {
+        filters: myFilters,
+      };
+    } else {
+      console.log("processing all signed VAAs");
+    }
+
+    const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
+    const stream = await subscribeSignedVAA(client, filter);
+
+    const { parse_vaa } = await importCoreWasm();
+
+    stream.on("data", ({ vaaBytes }) => {
+      processVaa(parse_vaa, vaaBytes);
+    });
+
+    console.log("spy_relay waiting for transfer signed VAAs");
+  })();
+}
 
 async function encodeEmitterAddress(
   myChainId,
