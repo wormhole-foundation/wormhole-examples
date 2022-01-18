@@ -18,6 +18,8 @@ export type TerraConnectionData = {
   coin: string;
   contractAddress: string;
   lcdConfig: LCDClientConfig;
+  walletSeqNum: number;
+  walletAccountNum: number;
 };
 
 export function connectToTerra(): TerraConnectionData {
@@ -73,6 +75,8 @@ export function connectToTerra(): TerraConnectionData {
     coin: process.env.TERRA_COIN,
     contractAddress: process.env.TERRA_PYTH_CONTRACT_ADDRESS,
     lcdConfig: lcdConfig,
+    walletSeqNum: 0,
+    walletAccountNum: 0,
   };
 }
 
@@ -92,48 +96,56 @@ export async function relayTerra(
   const wallet = lcdClient.wallet(mk);
 
   logger.debug("TIME: creating messages");
-  var msgs = new Array<MsgExecuteContract>();
-  for (var idx = 0; idx < signedVAAs.length; ++idx) {
-    const signedVaaArray = hexToUint8Array(signedVAAs[idx]);
-    // It is not a bug to call redeem here, since it creates a submit_vaa message, which is what we want.
-    const msg = await redeemOnTerra(
-      connectionData.contractAddress,
+  let msgs = new Array<MsgExecuteContract>();
+  for (let idx = 0; idx < signedVAAs.length; ++idx) {
+    const msg = new MsgExecuteContract(
       wallet.key.accAddress,
-      signedVaaArray
+      connectionData.contractAddress,
+      {
+        submit_vaa: {
+          data: Buffer.from(signedVAAs[idx], "hex").toString("base64"),
+        },
+      }
     );
 
     msgs.push(msg);
   }
 
-  logger.debug("TIME: looking up gas");
-  //Alternate FCD methodology
-  //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
-  const gasPrices = lcdClient.config.gasPrices;
+  // logger.debug("TIME: looking up gas");
+  // //Alternate FCD methodology
+  // //let gasPrices = await axios.get("http://localhost:3060/v1/txs/gas_prices").then((result) => result.data);
+  // const gasPrices = lcdClient.config.gasPrices;
 
-  logger.debug("TIME: estimating fees");
-  //const walletSequence = await wallet.sequence();
-  const feeEstimate = await lcdClient.tx.estimateFee(
-    wallet.key.accAddress,
-    msgs,
-    {
-      //TODO figure out type mismatch
-      feeDenoms: [connectionData.coin],
-      gasPrices,
-    }
+  // logger.debug("TIME: estimating fees");
+  // //const walletSequence = await wallet.sequence();
+  // const feeEstimate = await lcdClient.tx.estimateFee(
+  //   wallet.key.accAddress,
+  //   msgs,
+  //   {
+  //     //TODO figure out type mismatch
+  //     feeDenoms: [connectionData.coin],
+  //     gasPrices,
+  //   }
+  // );
+
+  logger.debug(
+    "TIME: creating transaction using seq number " +
+      connectionData.walletSeqNum +
+      " and account number " +
+      connectionData.walletAccountNum
   );
-
-  logger.debug("TIME: creating transaction");
   const tx = await wallet.createAndSignTx({
+    sequence: connectionData.walletSeqNum,
+    accountNumber: connectionData.walletAccountNum,
     msgs: msgs,
-    memo: "Pyth Price Attestation",
+    memo: "P2T",
     feeDenoms: [connectionData.coin],
-    gasPrices,
-    fee: feeEstimate,
   });
 
+  connectionData.walletSeqNum = connectionData.walletSeqNum + 1;
+
   logger.debug("TIME: sending msg");
-  const receipt = await lcdClient.tx.broadcast(tx);
-  logger.debug("TIME: done");
+  const receipt = await lcdClient.tx.broadcastSync(tx);
   logger.debug("TIME:submitted to terra: receipt: %o", receipt);
   return receipt;
 }
@@ -189,13 +201,15 @@ export async function queryBalanceOnTerra(connectionData: TerraConnectionData) {
 
   const wallet = lcdClient.wallet(mk);
 
-  var balance: number = NaN;
+  let balance: number = NaN;
   try {
     logger.debug("querying wallet balance");
-    var coins = await lcdClient.bank.balance(wallet.key.accAddress);
+    let coins: any;
+    let pagnation: any;
+    [coins, pagnation] = await lcdClient.bank.balance(wallet.key.accAddress);
     logger.debug("wallet query returned: %o", coins);
     if (coins) {
-      var coin = coins.get(connectionData.coin);
+      let coin = coins.get(connectionData.coin);
       if (coin) {
         balance = parseInt(coin.toData().amount);
       } else {
@@ -214,4 +228,33 @@ export async function queryBalanceOnTerra(connectionData: TerraConnectionData) {
   }
 
   return balance;
+}
+
+export async function setAccountNumOnTerra(
+  connectionData: TerraConnectionData
+) {
+  const lcdClient = new LCDClient(connectionData.lcdConfig);
+
+  const mk = new MnemonicKey({
+    mnemonic: process.env.TERRA_PRIVATE_KEY,
+  });
+
+  const wallet = lcdClient.wallet(mk);
+  logger.debug("getting wallet account num");
+  connectionData.walletAccountNum = await wallet.accountNumber();
+  logger.debug("wallet account num is " + connectionData.walletAccountNum);
+}
+
+export async function setSeqNumOnTerra(connectionData: TerraConnectionData) {
+  const lcdClient = new LCDClient(connectionData.lcdConfig);
+
+  const mk = new MnemonicKey({
+    mnemonic: process.env.TERRA_PRIVATE_KEY,
+  });
+
+  const wallet = lcdClient.wallet(mk);
+
+  logger.debug("getting wallet seq num");
+  connectionData.walletSeqNum = await wallet.sequence();
+  logger.debug("wallet seq num is " + connectionData.walletSeqNum);
 }

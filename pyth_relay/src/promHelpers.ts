@@ -47,6 +47,22 @@ export class PromHelper {
     name: "transfer_timeout",
     help: "number of transfers that timed out",
   });
+  private seqNumMismatchCounter = new client.Counter({
+    name: "seq_num_mismatch",
+    help: "number of transfers that failed due to sequence number mismatch",
+  });
+  private retryCounter = new client.Counter({
+    name: "retries",
+    help: "number of retry attempts",
+  });
+  private retriesExceededCounter = new client.Counter({
+    name: "retries_exceeded",
+    help: "number of transfers that failed due to exceeding the retry count",
+  });
+  private insufficentFundsCounter = new client.Counter({
+    name: "insufficient_funds",
+    help: "number of transfers that failed due to insufficient funds count",
+  });
   // End metrics
 
   private server = http.createServer(async (req, res) => {
@@ -58,7 +74,7 @@ export class PromHelper {
     }
   });
 
-  constructor(name: string, port) {
+  constructor(name: string, port: number) {
     this.register.setDefaultLabels({
       app: name,
     });
@@ -71,13 +87,17 @@ export class PromHelper {
     this.register.registerMetric(this.listenCounter);
     this.register.registerMetric(this.alreadyExecutedCounter);
     this.register.registerMetric(this.transferTimeoutCounter);
+    this.register.registerMetric(this.seqNumMismatchCounter);
+    this.register.registerMetric(this.retryCounter);
+    this.register.registerMetric(this.retriesExceededCounter);
+    this.register.registerMetric(this.insufficentFundsCounter);
     // End registering metric
 
     this.server.listen(port);
   }
 
   // These are the accessor methods for the metrics
-  setSeqNum(sn) {
+  setSeqNum(sn: number) {
     this.seqNumGauge.set(sn);
   }
   incSuccesses() {
@@ -86,10 +106,10 @@ export class PromHelper {
   incFailures() {
     this.failureCounter.inc();
   }
-  addCompleteTime(val) {
+  addCompleteTime(val: number) {
     this.completeTime.observe(val);
   }
-  setWalletBalance(bal) {
+  setWalletBalance(bal: number) {
     this.walletReg.clear();
     // this.walletReg = new client.Registry();
     this.walletBalance = new client.Gauge({
@@ -99,7 +119,7 @@ export class PromHelper {
       registers: [this.walletReg],
     });
     this.walletReg.registerMetric(this.walletBalance);
-    var now = new Date();
+    let now = new Date();
     // this.walletDate = now.toString();
     this.walletBalance.set({ timestamp: now.toString() }, bal);
     // this.walletBalance.set(bal);
@@ -112,5 +132,17 @@ export class PromHelper {
   }
   incTransferTimeout() {
     this.transferTimeoutCounter.inc();
+  }
+  incSeqNumMismatch() {
+    this.seqNumMismatchCounter.inc();
+  }
+  incRetries() {
+    this.retryCounter.inc();
+  }
+  incRetriesExceeded() {
+    this.retriesExceededCounter.inc();
+  }
+  incInsufficentFunds() {
+    this.insufficentFundsCounter.inc();
   }
 }

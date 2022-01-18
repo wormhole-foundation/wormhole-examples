@@ -21,9 +21,9 @@ import { logger } from "./helpers";
 import { postEvent } from "./worker";
 import { PromHelper } from "./promHelpers";
 
-var seqMap = new Map<string, number>();
-var listenOnly: boolean = false;
-var metrics: PromHelper;
+let seqMap = new Map<string, number>();
+let listenOnly: boolean = false;
+let metrics: PromHelper;
 
 export function init(lo: boolean): boolean {
   listenOnly = lo;
@@ -45,19 +45,19 @@ export async function run(pm: PromHelper) {
   );
 
   (async () => {
-    var filter = {};
+    let filter = {};
     if (process.env.SPY_SERVICE_FILTERS) {
       const parsedJsonFilters = eval(process.env.SPY_SERVICE_FILTERS);
 
-      var myFilters = [];
-      for (var i = 0; i < parsedJsonFilters.length; i++) {
-        var myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
-        var myEmitterAddress = parsedJsonFilters[i].emitter_address;
-        // var myEmitterAddress = await encodeEmitterAddress(
+      let myFilters = [];
+      for (let i = 0; i < parsedJsonFilters.length; i++) {
+        let myChainId = parseInt(parsedJsonFilters[i].chain_id) as ChainId;
+        let myEmitterAddress = parsedJsonFilters[i].emitter_address;
+        // let myEmitterAddress = await encodeEmitterAddress(
         //   myChainId,
         //   parsedJsonFilters[i].emitter_address
         // );
-        var myEmitterFilter = {
+        let myEmitterFilter = {
           emitterFilter: {
             chainId: myChainId,
             emitterAddress: myEmitterAddress,
@@ -81,20 +81,48 @@ export async function run(pm: PromHelper) {
       logger.info("processing all signed VAAs");
     }
 
-    const client = createSpyRPCServiceClient(process.env.SPY_SERVICE_HOST);
-    const stream = await subscribeSignedVAA(client, filter);
+    while (true) {
+      let stream: any;
+      try {
+        const client = createSpyRPCServiceClient(
+          process.env.SPY_SERVICE_HOST || ""
+        );
+        stream = await subscribeSignedVAA(client, filter);
 
-    stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes);
-    });
+        stream.on("data", ({ vaaBytes }: { vaaBytes: string }) => {
+          processVaa(vaaBytes);
+        });
 
-    logger.info("pyth_relay listening for messages");
+        let connected = true;
+        stream.on("error", (err: any) => {
+          logger.error("spy service returned an error: %o", err);
+          connected = false;
+        });
+
+        stream.on("close", () => {
+          logger.error("spy service closed the connection!");
+          connected = false;
+        });
+
+        logger.info("connected to spy service, listening for messages");
+
+        while (connected) {
+          await helpers.sleep(1000);
+        }
+      } catch (e) {
+        logger.error("spy service threw an exception: %o", e);
+      }
+
+      stream.end;
+      await helpers.sleep(5 * 1000);
+      logger.info("attempting to reconnect to the spy service");
+    }
   })();
 }
 
 async function encodeEmitterAddress(
-  myChainId,
-  emitterAddressStr
+  myChainId: ChainId,
+  emitterAddressStr: string
 ): Promise<string> {
   if (myChainId === CHAIN_ID_SOLANA) {
     return await getEmitterAddressSolana(emitterAddressStr);
@@ -108,7 +136,7 @@ async function encodeEmitterAddress(
 }
 
 async function processVaa(vaaBytes: string) {
-  var receiveTime = new Date();
+  let receiveTime = new Date();
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   // logger.debug(
@@ -132,11 +160,11 @@ async function processVaa(vaaBytes: string) {
       return;
     }
 
-    var pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
+    let pa = helpers.parsePythPriceAttestation(Buffer.from(parsedVAA.payload));
     // logger.debug("listen:processVaa: price attestation: %o", pa);
 
-    var key = pa.priceId;
-    var lastSeqNum = seqMap.get(key);
+    let key = pa.priceId;
+    let lastSeqNum = seqMap.get(key);
     if (lastSeqNum) {
       if (lastSeqNum >= parsedVAA.sequence) {
         logger.debug(
@@ -203,7 +231,7 @@ async function processVaa(vaaBytes: string) {
   }
 }
 
-function isPyth(payload): boolean {
+function isPyth(payload: Buffer): boolean {
   if (payload.length < 4) return false;
   if (
     payload[0] === 80 &&

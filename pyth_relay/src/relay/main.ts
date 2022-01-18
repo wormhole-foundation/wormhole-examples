@@ -3,6 +3,8 @@ import {
   queryBalanceOnTerra,
   queryTerra,
   relayTerra,
+  setAccountNumOnTerra,
+  setSeqNumOnTerra,
   TerraConnectionData,
 } from "./terra";
 
@@ -13,10 +15,27 @@ export type ConnectionData = {
 import { logger } from "../helpers";
 
 export function connectRelayer(): ConnectionData {
-  var td = connectToTerra();
+  let td = connectToTerra();
   return { terraData: td };
 }
 
+export async function setAccountNum(connectionData: ConnectionData) {
+  try {
+    await setAccountNumOnTerra(connectionData.terraData);
+  } catch (e) {
+    logger.error("setAccountNum: query failed: %o", e);
+  }
+}
+
+export async function setSeqNum(connectionData: ConnectionData) {
+  try {
+    await setSeqNumOnTerra(connectionData.terraData);
+  } catch (e) {
+    logger.error("setSeqNum: query failed: %o", e);
+  }
+}
+
+// Exceptions from this method are caught at the higher level.
 export async function relay(
   signedVAAs: Array<string>,
   connectionData: ConnectionData
@@ -28,13 +47,13 @@ export async function query(
   productIdStr: string,
   priceIdStr: string
 ): Promise<any> {
-  var result: any;
+  let result: any;
   try {
-    var terraData = connectToTerra();
+    let terraData = connectToTerra();
     result = await queryTerra(terraData, productIdStr, priceIdStr);
   } catch (e) {
     logger.error("query failed: %o", e);
-    result = "Error: " + e.message;
+    result = "Error: unhandled exception";
   }
 
   return result;
@@ -43,7 +62,7 @@ export async function query(
 export async function queryBalance(
   connectionData: ConnectionData
 ): Promise<number> {
-  var balance: number = NaN;
+  let balance: number = NaN;
   try {
     balance = await queryBalanceOnTerra(connectionData.terraData);
   } catch (e) {

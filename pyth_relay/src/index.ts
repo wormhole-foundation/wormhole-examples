@@ -7,7 +7,7 @@ import * as helpers from "./helpers";
 import { logger } from "./helpers";
 import { PromHelper } from "./promHelpers";
 
-var configFile: string = ".env";
+let configFile: string = ".env";
 if (process.env.PYTH_RELAY_CONFIG) {
   configFile = process.env.PYTH_RELAY_CONFIG;
 }
@@ -20,8 +20,8 @@ setDefaultWasm("node");
 // Set up the logger.
 helpers.initLogger();
 
-var error: boolean = false;
-var listenOnly: boolean = false;
+let error: boolean = false;
+let listenOnly: boolean = false;
 for (let idx = 0; idx < process.argv.length; ++idx) {
   if (process.argv[idx] === "--listen_only") {
     logger.info("running in listen only mode, will not relay anything!");
@@ -36,7 +36,7 @@ if (
   rest.init(!listenOnly)
 ) {
   // Start the Prometheus client with the app name and http port
-  var promPort = 8081;
+  let promPort = 8081;
   if (process.env.PROM_PORT) {
     promPort = parseInt(process.env.PROM_PORT);
   }
@@ -57,7 +57,7 @@ if (
       logger.info("listening for readiness requests on port " + readinessPort);
     });
 
-    readinessServer.on("connection", function (socket) {
+    readinessServer.on("connection", function (socket: any) {
       //logger.debug("readiness connection");
     });
   }

@@ -1,5 +1,5 @@
 import { Mutex } from "async-mutex";
-var CondVar = require("condition-variable");
+let CondVar = require("condition-variable");
 
 import { setDefaultWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
@@ -10,8 +10,8 @@ import * as main from "./relay/main";
 import { PromHelper } from "./promHelpers";
 
 const mutex = new Mutex();
-var condition = new CondVar();
-var conditionTimeout = 20000;
+let condition = new CondVar();
+let conditionTimeout = 20000;
 
 type PendingPayload = {
   vaa_bytes: string;
@@ -20,7 +20,7 @@ type PendingPayload = {
   seqNum: number;
 };
 
-var pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id. Note that Map maintains insertion order, not key order.
+let pendingMap = new Map<string, PendingPayload>(); // The key to this is price_id. Note that Map maintains insertion order, not key order.
 
 type ProductData = {
   key: string;
@@ -35,13 +35,16 @@ type CurrentEntry = {
   currObj: ProductData;
 };
 
-var productMap = new Map<string, ProductData>(); // The key to this is price_id
+let productMap = new Map<string, ProductData>(); // The key to this is price_id
 
-var connectionData: main.ConnectionData;
-var metrics: PromHelper;
-var nextBalanceQueryTimeAsMs: number = 0;
-var balanceQueryInterval = 0;
-var walletTimeStamp: Date;
+let connectionData: main.ConnectionData;
+let metrics: PromHelper;
+let nextBalanceQueryTimeAsMs: number = 0;
+let balanceQueryInterval = 0;
+let walletTimeStamp: Date;
+let maxPerBatch: number = 1;
+let maxAttempts: number = 2;
+let retryDelayInMs: number = 0;
 
 export function init(runWorker: boolean): boolean {
   if (!runWorker) return true;
@@ -50,6 +53,48 @@ export function init(runWorker: boolean): boolean {
     connectionData = main.connectRelayer();
   } catch (e) {
     logger.error("failed to load connection config: %o", e);
+    return false;
+  }
+
+  if (process.env.MAX_MSGS_PER_BATCH) {
+    maxPerBatch = parseInt(process.env.MAX_MSGS_PER_BATCH);
+  }
+
+  if (maxPerBatch <= 0) {
+    logger.error(
+      "Environment variable MAX_MSGS_PER_BATCH has an invalid value of " +
+        maxPerBatch +
+        ", must be greater than zero."
+    );
+
+    return false;
+  }
+
+  if (process.env.RETRY_MAX_ATTEMPTS) {
+    maxAttempts = parseInt(process.env.RETRY_MAX_ATTEMPTS);
+  }
+
+  if (maxAttempts <= 0) {
+    logger.error(
+      "Environment variable RETRY_MAX_ATTEMPTS has an invalid value of " +
+        maxAttempts +
+        ", must be greater than zero."
+    );
+
+    return false;
+  }
+
+  if (process.env.RETRY_DELAY_IN_MS) {
+    retryDelayInMs = parseInt(process.env.RETRY_DELAY_IN_MS);
+  }
+
+  if (retryDelayInMs < 0) {
+    logger.error(
+      "Environment variable RETRY_DELAY_IN_MS has an invalid value of " +
+        retryDelayInMs +
+        ", must be positive or zero."
+    );
+
     return false;
   }
 
@@ -62,11 +107,32 @@ export async function run(met: PromHelper) {
   metrics = met;
 
   await mutex.runExclusive(async () => {
+    logger.info(
+      "will attempt to relay each pyth message at most " +
+        maxAttempts +
+        " times, with a delay of " +
+        retryDelayInMs +
+        " milliseconds between attempts, will batch up to " +
+        maxPerBatch +
+        " pyth messages in a batch"
+    );
+
     if (process.env.BAL_QUERY_INTERVAL) {
       balanceQueryInterval = parseInt(process.env.BAL_QUERY_INTERVAL);
     }
 
-    var balance = await main.queryBalance(connectionData);
+    await main.setAccountNum(connectionData);
+    logger.info(
+      "wallet account number is " + connectionData.terraData.walletAccountNum
+    );
+
+    await main.setSeqNum(connectionData);
+    logger.info(
+      "initial wallet sequence number is " +
+        connectionData.terraData.walletSeqNum
+    );
+
+    let balance = await main.queryBalance(connectionData);
     if (!isNaN(balance)) {
       walletTimeStamp = new Date();
     }
@@ -101,10 +167,10 @@ async function callBack(err: any, result: any) {
   // condition = null;
   // await helpers.sleep(10000);
   // logger.debug("done with long sleep");
-  var done = false;
+  let done = false;
   do {
-    var currObjs = new Array<CurrentEntry>();
-    var messages = new Array<string>();
+    let currObjs = new Array<CurrentEntry>();
+    let messages = new Array<string>();
 
     await mutex.runExclusive(async () => {
       condition = null;
@@ -120,9 +186,9 @@ async function callBack(err: any, result: any) {
 
     if (currObjs.length !== 0) {
       logger.debug("in callback, relaying " + currObjs.length + " events.");
-      var sendTime = new Date();
-      var retVal: number;
-      var relayResult: any;
+      let sendTime = new Date();
+      let retVal: number;
+      let relayResult: any;
       [retVal, relayResult] = await relayEventsNotLocked(messages);
 
       await mutex.runExclusive(async () => {
@@ -149,7 +215,7 @@ async function callBack(err: any, result: any) {
 
 function computeTimeout(): number {
   if (balanceQueryInterval !== 0) {
-    var now = new Date().getTime();
+    let now = new Date().getTime();
     if (now < nextBalanceQueryTimeAsMs) {
       return nextBalanceQueryTimeAsMs - now;
     }
@@ -164,10 +230,12 @@ async function getPendingEventsAlreadyLocked(
   currObjs: Array<CurrentEntry>,
   messages: Array<string>
 ) {
-  for (let [pk, pendingValue] of pendingMap) {
-    logger.debug("processing event with key [" + pk + "]");
-    var pendingKey = pendingValue.pa.priceId;
-    var currObj = productMap.get(pendingKey);
+  while (pendingMap.size !== 0 && currObjs.length < maxPerBatch) {
+    const first = pendingMap.entries().next();
+    logger.debug("processing event with key [" + first.value[0] + "]");
+    const pendingValue = first.value[1];
+    let pendingKey = pendingValue.pa.priceId;
+    let currObj = productMap.get(pendingKey);
     if (currObj) {
       currObj.lastPa = pendingValue.pa;
       currObj.lastTimePublished = new Date();
@@ -180,10 +248,6 @@ async function getPendingEventsAlreadyLocked(
           "], seq num " +
           pendingValue.seqNum
       );
-
-      currObjs.push({ pendingEntry: pendingValue, currObj: currObj });
-      messages.push(pendingValue.vaa_bytes);
-      pendingMap.delete(pendingKey);
     } else {
       logger.debug(
         "processing first update for [" +
@@ -199,72 +263,160 @@ async function getPendingEventsAlreadyLocked(
         lastResult: "",
       };
       productMap.set(pendingKey, currObj);
-
-      currObjs.push({ pendingEntry: pendingValue, currObj: currObj });
-      messages.push(pendingValue.vaa_bytes);
-      pendingMap.delete(pendingKey);
     }
+
+    currObjs.push({ pendingEntry: pendingValue, currObj: currObj });
+    messages.push(pendingValue.vaa_bytes);
+    pendingMap.delete(first.value[0]);
   }
 
-  pendingMap.clear();
+  if (currObjs.length !== 0) {
+    for (let idx = 0; idx < currObjs.length; ++idx) {
+      pendingMap.delete(currObjs[idx].currObj.key);
+    }
+  }
 }
 
 const RELAY_SUCCESS: number = 0;
 const RELAY_FAIL: number = 1;
 const RELAY_ALREADY_EXECUTED: number = 2;
 const RELAY_TIMEOUT: number = 3;
+const RELAY_SEQ_NUM_MISMATCH: number = 4;
+const RELAY_INSUFFICIENT_FUNDS: number = 5;
 
 async function relayEventsNotLocked(
   messages: Array<string>
 ): Promise<[number, any]> {
-  var retVal: number = RELAY_SUCCESS;
-  var relayResult: any;
-  try {
-    relayResult = await main.relay(messages, connectionData);
-    if (relayResult.txhash) {
-      if (
-        relayResult.raw_log &&
-        relayResult.raw_log.search("VaaAlreadyExecuted") >= 0
-      ) {
-        relayResult = "Already Executed: " + relayResult.txhash;
-        retVal = RELAY_ALREADY_EXECUTED;
-      } else if (
-        relayResult.raw_log &&
-        relayResult.raw_log.search("failed") >= 0
-      ) {
-        logger.error("relay seems to have failed: %o", relayResult);
-        retVal = RELAY_FAIL;
-      } else {
-        relayResult = relayResult.txhash;
-      }
-    } else {
-      retVal = RELAY_FAIL;
-      if (relayResult.message) {
-        relayResult = relayResult.message;
-      } else {
-        logger.error("No txhash: %o", relayResult);
-        relayResult = "No txhash";
-      }
-    }
-  } catch (e) {
-    if (e.message.search("timeout") >= 0 && e.message.search("exceeded") >= 0) {
-      logger.error("relay timed out: %o", e);
-      retVal = RELAY_TIMEOUT;
-    } else {
-      logger.error("relay failed: %o", e);
-      if (
-        e.response &&
-        e.response.data &&
-        e.response.data.error &&
-        e.response.data.error.search("VaaAlreadyExecuted") >= 0
-      ) {
-        relayResult = "Already Executed";
-        retVal = RELAY_ALREADY_EXECUTED;
+  let retVal: number = RELAY_SUCCESS;
+  let relayResult: any;
+  let retry: boolean = false;
+
+  for (let attempt = 0; attempt < maxAttempts; ++attempt) {
+    retVal = RELAY_SUCCESS;
+    retry = false;
+
+    try {
+      relayResult = await main.relay(messages, connectionData);
+      if (relayResult.txhash) {
+        if (
+          relayResult.raw_log &&
+          relayResult.raw_log.search("VaaAlreadyExecuted") >= 0
+        ) {
+          relayResult = "Already Executed: " + relayResult.txhash;
+          retVal = RELAY_ALREADY_EXECUTED;
+        } else if (
+          relayResult.raw_log &&
+          relayResult.raw_log.search("insufficient funds") >= 0
+        ) {
+          logger.error(
+            "relay failed due to insufficient funds: %o",
+            relayResult
+          );
+          connectionData.terraData.walletSeqNum =
+            connectionData.terraData.walletSeqNum - 1;
+          retVal = RELAY_INSUFFICIENT_FUNDS;
+        } else if (
+          relayResult.raw_log &&
+          relayResult.raw_log.search("failed") >= 0
+        ) {
+          logger.error("relay seems to have failed: %o", relayResult);
+          retVal = RELAY_FAIL;
+          retry = true;
+        } else {
+          relayResult = relayResult.txhash;
+        }
       } else {
         retVal = RELAY_FAIL;
-        relayResult = "Error: " + e.message;
+        retry = true;
+        if (relayResult.message) {
+          relayResult = relayResult.message;
+        } else {
+          logger.error("No txhash: %o", relayResult);
+          relayResult = "No txhash";
+        }
+      }
+    } catch (e: any) {
+      if (
+        e.message &&
+        e.message.search("timeout") >= 0 &&
+        e.message.search("exceeded") >= 0
+      ) {
+        logger.error("relay timed out: %o", e);
+        retVal = RELAY_TIMEOUT;
+        retry = true;
+      } else {
+        logger.error("relay failed: %o", e);
+        if (e.response && e.response.data) {
+          if (
+            e.response.data.error &&
+            e.response.data.error.search("VaaAlreadyExecuted") >= 0
+          ) {
+            relayResult = "Already Executed";
+            retVal = RELAY_ALREADY_EXECUTED;
+          } else if (
+            e.response.data.message &&
+            e.response.data.message.search("account sequence mismatch") >= 0
+          ) {
+            relayResult = e.response.data.message;
+            retVal = RELAY_SEQ_NUM_MISMATCH;
+            retry = true;
+
+            logger.debug(
+              "wallet sequence number is out of sync, querying the current value"
+            );
+            await main.setSeqNum(connectionData);
+            logger.info(
+              "wallet seq number is now " +
+                connectionData.terraData.walletSeqNum
+            );
+          } else {
+            retVal = RELAY_FAIL;
+            retry = true;
+            if (e.message) {
+              relayResult = "Error: " + e.message;
+            } else {
+              relayResult = "Error: unexpected exception";
+            }
+          }
+        } else {
+          retVal = RELAY_FAIL;
+          retry = true;
+          if (e.message) {
+            relayResult = "Error: " + e.message;
+          } else {
+            relayResult = "Error: unexpected exception";
+          }
+        }
       }
     }
+
+    logger.debug(
+      "relay attempt complete: retVal: " +
+        retVal +
+        ", retry: " +
+        retry +
+        ", attempt " +
+        attempt +
+        " of " +
+        maxAttempts
+    );
+
+    if (!retry) {
+      break;
+    } else {
+      metrics.incRetries();
+      if (retryDelayInMs != 0) {
+        logger.debug(
+          "delaying for " + retryDelayInMs + " milliseconds before retrying"
+        );
+        await helpers.sleep(retryDelayInMs * (attempt + 1));
+      }
+    }
+  }
+
+  if (retry) {
+    logger.error("failed to relay batch, retry count exceeded!");
+    metrics.incRetriesExceeded();
   }
 
   return [retVal, relayResult];
@@ -276,9 +428,9 @@ async function finalizeEventsAlreadyLocked(
   relayResult: any,
   sendTime: Date
 ) {
-  for (var idx = 0; idx < currObjs.length; ++idx) {
-    var currObj = currObjs[idx].currObj;
-    var currEntry = currObjs[idx].pendingEntry;
+  for (let idx = 0; idx < currObjs.length; ++idx) {
+    let currObj = currObjs[idx].currObj;
+    let currEntry = currObjs[idx].pendingEntry;
     currObj.lastResult = relayResult;
     currObj.numTimesPublished = currObj.numTimesPublished + 1;
     if (retVal == RELAY_SUCCESS) {
@@ -288,12 +440,18 @@ async function finalizeEventsAlreadyLocked(
     } else if (retVal == RELAY_TIMEOUT) {
       metrics.incTransferTimeout();
       metrics.incFailures();
+    } else if (retVal == RELAY_SEQ_NUM_MISMATCH) {
+      metrics.incSeqNumMismatch();
+      metrics.incFailures();
+    } else if (retVal == RELAY_INSUFFICIENT_FUNDS) {
+      metrics.incInsufficentFunds();
+      metrics.incFailures();
     } else {
       metrics.incFailures();
     }
     productMap.set(currObj.key, currObj);
 
-    var completeTime = new Date();
+    let completeTime = new Date();
     metrics.setSeqNum(currEntry.seqNum);
     metrics.addCompleteTime(
       completeTime.getTime() - currEntry.receiveTime.getTime()
@@ -322,9 +480,9 @@ async function finalizeEventsAlreadyLocked(
     );
   }
 
-  var now = new Date();
+  let now = new Date();
   if (balanceQueryInterval > 0 && now.getTime() >= nextBalanceQueryTimeAsMs) {
-    var balance = await main.queryBalance(connectionData);
+    let balance = await main.queryBalance(connectionData);
     if (isNaN(balance)) {
       logger.error("failed to query wallet balance!");
     } else {
@@ -349,13 +507,13 @@ export async function postEvent(
   sequence: number,
   receiveTime: Date
 ) {
-  var event: PendingPayload = {
+  let event: PendingPayload = {
     vaa_bytes: uint8ArrayToHex(vaaBytes),
     pa: pa,
     receiveTime: receiveTime,
     seqNum: sequence,
   };
-  var pendingKey = pa.priceId;
+  let pendingKey = pa.priceId;
   // pendingKey = pendingKey + ":" + sequence;
   await mutex.runExclusive(() => {
     logger.debug("posting event with key [" + pendingKey + "]");
@@ -368,9 +526,9 @@ export async function postEvent(
 }
 
 export async function getStatus() {
-  var result = "[";
+  let result = "[";
   await mutex.runExclusive(() => {
-    var first: boolean = true;
+    let first: boolean = true;
     for (let [key, value] of productMap) {
       if (first) {
         first = false;
@@ -378,7 +536,7 @@ export async function getStatus() {
         result = result + ", ";
       }
 
-      var item: object = {
+      let item: object = {
         product_id: value.lastPa.productId,
         price_id: value.lastPa.priceId,
         price: helpers.computePrice(value.lastPa.price, value.lastPa.exponent),
@@ -404,7 +562,7 @@ export async function getPriceData(
   productId: string,
   priceId: string
 ): Promise<any> {
-  var result: any;
+  let result: any;
   // await mutex.runExclusive(async () => {
   result = await main.query(productId, priceId);
   // });

@@ -1,24 +1,24 @@
 ////////////////////////////////// Start of Logger Stuff //////////////////////////////////////
 
-export var logger;
+export let logger: any;
 
 export function initLogger() {
   const winston = require("winston");
 
-  var useConsole: boolean = true;
-  var logFileName: string;
+  let useConsole: boolean = true;
+  let logFileName: string = "";
   if (process.env.LOG_DIR) {
     useConsole = false;
     logFileName =
       process.env.LOG_DIR + "/pyth_relay." + new Date().toISOString() + ".log";
   }
 
-  var logLevel = "info";
+  let logLevel = "info";
   if (process.env.LOG_LEVEL) {
     logLevel = process.env.LOG_LEVEL;
   }
 
-  var transport: any;
+  let transport: any;
   if (useConsole) {
     console.log("pyth_relay is logging to the console at level [%s]", logLevel);
 
@@ -47,7 +47,7 @@ export function initLogger() {
         format: "YYYY-MM-DD HH:mm:ss.SSS",
       }),
       winston.format.printf(
-        (info) => `${[info.timestamp]}|${info.level}|${info.message}`
+        (info: any) => `${[info.timestamp]}|${info.level}|${info.message}`
       )
     ),
   };
@@ -166,7 +166,7 @@ export function parsePythPriceAttestation(arr: Buffer): PythPriceAttestation {
 
 ////////////////////////////////// Start of Other Helpful Stuff //////////////////////////////////////
 
-export function sleep(ms) {
+export function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
