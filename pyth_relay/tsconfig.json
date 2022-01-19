@@ -13,8 +13,7 @@
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "downlevelIteration": true,
-    "noEmit": true
+    "downlevelIteration": true
   },
   "include": ["src"],
   "exclude": ["node_modules", "**/__tests__/*"]
