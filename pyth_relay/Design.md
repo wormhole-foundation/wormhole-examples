@@ -21,6 +21,21 @@ The relayer can be configured to log to a file in the directory specified by the
 <p>
 The log level can be controlled by the LOG_LEVEL environment variable, where info is the default. The valid values are debug, info, warn, and error.
 
+# External Dependencies
+
+The relayer connects to Terra, so it therefore has the following dependencies
+
+1. A Pyth to Wormhole publisher
+2. A highly reliable connection to a local Terra node via Wormhole
+3. A unique Terra Wallet per instance of pyth_relayer
+4. A Wormhole spy guardian process running that the pyth_relayer can subscribe to for Pyth messages
+
+Note that for performance reasons, pyth_relayer manages the Terra wallet sequence number locally. If it does not do so, it will get wallet sequence number errors if it publishes faster than the Terra node can handle it. For this to work, the relayer should be connected to a local Terra node, to minimize the possible paths the published message could take, and maintain sequence number ordering.
+
+# High Availability
+
+If high availability is a goal, then two completely seperate instances of pyth_relay should be run. They should run on completely separate hardware, using separate Terra connections and wallets. Additionally, they should connect to separate instances of the spy_guardian. They will both be publishing messages to the Pyth Terra contract, which will simply drop the duplicates.
+
 # Design Details
 
 The relayer code is divided into separate source files, based on functionality. The main entry point is index.ts. It invokes code in the other files as follows.
@@ -44,6 +59,8 @@ The worker maintains performance metrics to be published by the Prometeus interf
 <p>
 The worker also provides methods to query the status of the wallet being used for relaying, the current status of all maintained prices, and can query Terra for the current
 data for a given price. These are used by the REST interface, if it is enabled in the config.
+<p>
+In most cases, if a Terra transaction fails, the worker will retry up to a configurable number of times, with a configurable delay between each time. For each successive retry of a given message, they delay is increased by the retry attempt number (delay * attempt).
 
 ## main.ts and terra.ts
 
@@ -59,6 +76,12 @@ Prometheus is being used as a framework for storing metrics. Currently, the foll
 - A histogram of transfer times
 - The current wallet balance
 - The total number of VAAs received by the listener
+- The total number of VAAs already executed on Terra
+- The total number of Terra transaction timeouts
+- The total number of Terra sequence number errors
+- The total number of Terra retry attempts
+- The total number of retry limit exceeded errors
+- The total number of transactions failed due to insufficient funds
 
 All the above metrics can be viewed at http://localhost:8081/metrics
 

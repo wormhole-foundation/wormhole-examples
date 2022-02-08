@@ -24,11 +24,12 @@ $ docker run --platform linux/amd64 -d --network=host spy_guardian \
 ```
 
 Or run the spy_guardian docker container in MainNet:
+For the MainNet gossip network parameters, see https://github.com/certusone/wormhole-networks/blob/master/mainnetv2/info.md
 
 ```
 $ docker run --platform linux/amd64 -d --network=host spy_guardian \
---bootstrap /dns4/wormhole-mainnet-v2-bootstrap.certus.one/udp/8999/quic/p2p/12D3KooWL6xoqY8yU2xR2K6cP6jix4LnGSrRh94HCKiK371qUFeU \
---network /wormhole/mainnet/2 \
+--bootstrap <guardianNetworkBootstrapParameterForMainNet> \
+--network <guardianNetworkPathForMainNet> \
 --spyRPC "[::]:7073"
 
 ```
