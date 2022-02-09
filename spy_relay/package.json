@@ -5,7 +5,6 @@
   "main": "spy_relay.js",
   "scripts": {
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1",
     "spy_relay": "node lib/spy_relay.js",
     "listen_only": "node lib/spy_relay.js --listen_only",
     "spy_rest": "node lib/spy_rest.js",
@@ -14,6 +13,7 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
+    "@improbable-eng/grpc-web-node-http-transport": "^0.15.0",
     "@types/jest": "^27.0.2",
     "@types/long": "^4.0.1",
     "@types/node": "^16.6.1",
@@ -28,12 +28,13 @@
     "typescript": "^4.3.5"
   },
   "dependencies": {
-    "@certusone/wormhole-sdk": "^0.1.1",
+    "@certusone/wormhole-sdk": "^0.1.4",
     "@certusone/wormhole-spydk": "^0.0.1",
     "@solana/spl-token": "^0.1.8",
     "@solana/web3.js": "^1.24.0",
     "@terra-money/terra.js": "^2.0.14",
     "body-parser": "^1.19.0",
+    "cors": "^2.8.5",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "redis": "^4.0.0"

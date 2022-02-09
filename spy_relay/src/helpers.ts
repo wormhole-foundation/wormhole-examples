@@ -1,5 +1,8 @@
 import { uint8ArrayToHex } from "@certusone/wormhole-sdk";
 
+export const INCOMING = 0;
+export const WORKING = 1;
+
 export type StoreKey = {
   chain_id: number;
   emitter_address: string;
@@ -9,6 +12,29 @@ export type StoreKey = {
 export type StorePayload = {
   vaa_bytes: string;
 };
+
+export type StoreWorkingPayload = {
+  // vaa_bytes is the same as in the StorePayload type.
+  vaa_bytes: string;
+  status: string;
+  timestamp: string;
+};
+
+export function initWorkingPayload(): StoreWorkingPayload {
+  return {
+    vaa_bytes: "",
+    status: "Pending",
+    timestamp: Date().toString(),
+  };
+}
+
+export function workingPayloadToJson(payload: StoreWorkingPayload): string {
+  return JSON.stringify(payload);
+}
+
+export function workingPayloadFromJson(json: string): StoreWorkingPayload {
+  return JSON.parse(json);
+}
 
 export function storeKeyFromParsedVAA(parsedVAA: any): StoreKey {
   return {
@@ -36,6 +62,10 @@ export function storePayloadToJson(storePayload: StorePayload): string {
   return JSON.stringify(storePayload);
 }
 
-export function storeePayloadFromJson(json: string): StorePayload {
+export function storePayloadFromJson(json: string): StorePayload {
   return JSON.parse(json);
+}
+
+export function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

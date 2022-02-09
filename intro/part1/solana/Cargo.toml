@@ -1,0 +1,30 @@
+[package]
+name = "wormhole-messenger-solana"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "messenger_solana"
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+wasm = ["no-entrypoint"]
+
+[dependencies]
+borsh                     = "0.9.1"
+solana-program            = { version="=1.7.0" }
+nom                       = { version="7", default-features=false, features=["alloc"] }
+wasm-bindgen = { version = "0.2.74", features = ["serde-serialize"] }
+wormhole-sdk              = { path = "../../../sdk/rust/sdk", features = ["devnet", "solana"] }
+
+[dev-dependencies]
+solana-program-test = "=1.7.0"
+solana-sdk          = "=1.7.0"
+rand                = "0.7.3"
+
+[patch.crates-io]
+memmap2 = { path = "memmap2-rs" }
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
