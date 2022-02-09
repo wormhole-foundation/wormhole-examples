@@ -7,8 +7,10 @@
     "build": "tsc",
     "spy_relay": "node lib/spy_relay.js",
     "listen_only": "node lib/spy_relay.js --listen_only",
-    "spy_rest": "node lib/spy_rest.js",
-    "spy_worker": "node lib/spy_worker.js"
+    "worker_only": "node lib/spy_relay.js --worker_only",
+    "rest_only": "node lib/spy_relay.js --rest_only",
+    "test": "jest --config jestconfig.json --verbose"
+
   },
   "author": "",
   "license": "Apache-2.0",

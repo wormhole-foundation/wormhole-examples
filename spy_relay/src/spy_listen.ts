@@ -23,7 +23,8 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 
 import * as helpers from "./helpers";
 
-export async function spy_listen() {
+export async function spy_listen(useRedis: boolean) {
+
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
     console.error("Missing environment variable SPY_SERVICE_HOST");
@@ -79,7 +80,7 @@ export async function spy_listen() {
     const stream = await subscribeSignedVAA(client, filter);
 
     stream.on("data", ({ vaaBytes }) => {
-      processVaa(vaaBytes);
+      processVaa(vaaBytes, useRedis);
     });
 
     console.log("spy_relay waiting for transfer signed VAAs");
@@ -101,21 +102,13 @@ async function encodeEmitterAddress(
   return getEmitterAddressEth(emitterAddressStr);
 }
 
-async function processVaa(vaaBytes) {
+async function processVaa(vaaBytes, useRedis: boolean) {
   // console.log("processVaa");
   console.log(vaaBytes);
   const { parse_vaa } = await importCoreWasm();
   const parsedVAA = parse_vaa(hexToUint8Array(vaaBytes));
   console.log(parsedVAA);
 
-  // Connect to redis
-  const myRedisClient = await connectToRedis();
-  if (myRedisClient) {
-    console.log("Got a valid client from connect");
-  } else {
-    console.error("Invalid client from connect");
-    return;
-  }
   if (parsedVAA.payload[0] === 1) {
     var storeKey = helpers.storeKeyFromParsedVAA(parsedVAA);
     var storePayload = helpers.storePayloadFromVaaBytes(vaaBytes);
@@ -128,12 +121,26 @@ async function processVaa(vaaBytes) {
       storeKey.sequence,
       helpers.storePayloadToJson(storePayload)
     );
-    await storeInRedis(
-      myRedisClient,
-      helpers.storeKeyToJson(storeKey),
-      helpers.storePayloadToJson(storePayload)
-    );
-    console.log("Finished storing in redis.");
+
+    if (useRedis) {
+      // Connect to redis
+      const myRedisClient = await connectToRedis();
+      if (myRedisClient) {
+        console.log("Got a valid client from connect");
+      } else {
+        console.error("Invalid client from connect");
+        return;
+      }
+
+      await storeInRedis(
+        myRedisClient,
+        helpers.storeKeyToJson(storeKey),
+        helpers.storePayloadToJson(storePayload)
+      );
+
+      console.log("Finished storing in redis.");
+      await myRedisClient.quit();
+    }
 
     var transferPayload = parseTransferPayload(Buffer.from(parsedVAA.payload));
     console.log(
@@ -167,7 +174,6 @@ async function processVaa(vaaBytes) {
       parsedVAA
     );
   }
-  await myRedisClient.quit();
 }
 
 async function connectToRedis() {
