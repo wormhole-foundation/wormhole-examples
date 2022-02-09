@@ -6,6 +6,43 @@ import { spy_rest } from "./spy_rest";
 import * as helpers from "./helpers";
 import { RelayerEnvironment, validateEnvironment } from "./configureEnv";
 
+var pendingMap = new Map<string, string>();
+pendingMap.set("XXX", "XXX should be first");
+pendingMap.set("CCC", "CCC should be second");
+pendingMap.set("XXX", "XXX should still be first");
+pendingMap.set("AAA", "AAA should be third");
+
+for (let [pk, pendingValue] of pendingMap) {
+  console.log("key: [" + pk + "], value: [" + pendingValue + "]");
+}
+
+while (pendingMap.size !== 0) {
+  const first = pendingMap.entries().next();
+
+  console.log(
+    "deleting first item, which is: key: [" +
+      first.value[0] +
+      "], value: [" +
+      first.value[1] +
+      "]"
+  );
+
+  pendingMap.delete(first.value[0]);
+
+  for (let [pk, pendingValue] of pendingMap) {
+    console.log("key: [" + pk + "], value: [" + pendingValue + "]");
+  }
+}
+
+var listenOnly: boolean = false;
+for (let idx = 0; idx < process.argv.length; ++idx) {
+  if (process.argv[idx] === "--listen_only") {
+    console.log("running in listen only mode, will not forward to redis");
+    listenOnly = true;
+    break;
+  }
+}
+
 require("dotenv").config();
 
 setDefaultWasm("node");

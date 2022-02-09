@@ -24,6 +24,7 @@ import { importCoreWasm } from "@certusone/wormhole-sdk/lib/cjs/solana/wasm";
 import * as helpers from "./helpers";
 
 export async function spy_listen(useRedis: boolean) {
+
   require("dotenv").config();
   if (!process.env.SPY_SERVICE_HOST) {
     console.error("Missing environment variable SPY_SERVICE_HOST");

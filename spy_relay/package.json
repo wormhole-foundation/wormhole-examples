@@ -10,6 +10,7 @@
     "worker_only": "node lib/spy_relay.js --worker_only",
     "rest_only": "node lib/spy_relay.js --rest_only",
     "test": "jest --config jestconfig.json --verbose"
+
   },
   "author": "",
   "license": "Apache-2.0",
